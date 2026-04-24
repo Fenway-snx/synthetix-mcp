@@ -1,0 +1,203 @@
+// Proto definition for Synthetix V4-Offchain Matching Engine
+// To compile:
+// protoc --go_out=. --go-grpc_out=. matching.proto
+
+syntax = "proto3";
+
+package synthetix.v4_offchain.matching;
+
+option go_package = "github.com/Synthetixio/v4-offchain/lib/message/grpc";
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+// --- Wrapped Order Messages ---
+
+// Wraps all order operations for the matching engine
+message MatchingOrderRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	// Unique request ID for correlation
+	string request_id = 1;
+
+	// The specific order operation
+	oneof operation {
+		MatchingNewOrderRequest new_order = 2;
+		MatchingCancelOrderRequest cancel_order = 3;
+		MatchingModifyOrderRequest modify_order = 4;
+	}
+}
+
+// Wraps all order responses from the matching engine
+message MatchingOrderResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	// Echo back the request ID
+	string request_id = 1;
+
+	// Whether the operation was successful
+	bool success = 2;
+
+	// Error message if failed
+	optional string error_message = 3;
+
+	// Machine-readable error code for programmatic handling
+	optional string error_code = 7;
+
+	// The specific response
+	oneof response {
+		MatchingNewOrderResponse new_order = 4;
+		MatchingCancelOrderResponse cancel_order = 5;
+		MatchingModifyOrderResponse modify_order = 6;
+	}
+}
+
+// Represents a matched order execution between a taker and maker
+message Fill {
+	uint64 taker_venue_order_id = 1;
+	int64 taker_sub_account_id = 2;
+	uint64 maker_venue_order_id = 3;
+	int64 maker_sub_account_id = 4;
+	uint64 quantity = 5;
+	uint64 price = 6;
+	optional uint64 meseq = 7; // Authoritative matching-engine sequence for this fill
+	optional int64 met = 8; // Authoritative matching-engine event time (Unix microseconds)
+}
+
+// Defines the possible outcomes of a cancel operation
+enum CancelStatus {
+	CANCEL_SUCCESS = 0;
+	CANCEL_NOT_FOUND = 1;
+}
+
+// Defines the possible outcomes of a modify operation
+enum ModifyStatus {
+	MODIFY_SUCCESS = 0;
+	MODIFY_ORDER_NOT_FOUND = 1;
+	MODIFY_REJECTED = 2; // Modify was rejected (validation or business rule violation)
+}
+
+// --- Individual Order Messages ---
+
+// Requests placement of a new order in the matching engine
+message MatchingNewOrderRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1;                     // The subaccount ID placing the order
+	uint64 venue_order_id = 2;                     // The system-generated order ID
+	string symbol = 3;                             // The market identifier, e.g., "BTC-USD"
+	common.Side side = 4;                          // The side of the order using enum from common.proto
+	common.OrderType type = 5;                     // The type of order using enum from common.proto
+	uint64 quantity = 6;                           // The quantity of the order
+	uint64 price = 7;                              // The limit price. Required for LIMIT orders, must be null for MARKET orders
+	optional common.TimeInForce time_in_force = 8; // Order lifetime policy using enum from common.proto
+	optional bool reduce_only = 9;                 // If true, the order is only accepted if it reduces an existing position
+	bool post_only = 10;
+
+	// Market order price limit (for market orders only)
+	// Pre-calculated max/min allowed price to prevent execution at extreme prices during volatile conditions
+	// For BUY orders: this is the max allowed fill price (markPrice * (1 + capRatio))
+	// For SELL orders: this is the min allowed fill price (markPrice * (1 - floorRatio))
+	// Set to 0 to disable validation
+	optional uint64 market_order_price_limit = 11; // Scaled by market's PriceExponent
+
+	// OI Cap enforcement fields
+	bool is_closing_position = 12; // True if order reduces an existing position (DirectionCloseLong/CloseShort)
+	uint64 mark_price = 13;        // Current mark price for OI cap notional calculation (scaled by PriceExponent)
+	uint64 position_quantity = 14; // Current position size for flip detection (scaled by QuantityExponent)
+}
+
+// Returns the result of a new order placement including fills
+message MatchingNewOrderResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	int64 sub_account_id = 1; // The subaccount ID placing the order
+	uint64 venue_order_id = 2; // The system-generated order ID
+	string symbol = 3;         // The market of the order
+	common.Side side = 4;      // The side of the order using enum from common.proto
+	common.OrderType type = 5; // The type of the order using enum from common.proto
+	uint64 quantity = 6;
+	uint64 price = 7;              // The limit price of the order (null for market orders)
+	common.OrderStatus status = 8; // The status of the order
+	uint64 remaining_quantity = 9; // The size of the order that is not yet filled
+
+	// Enhanced fields for detailed execution information
+	repeated Fill fills = 10;                      // All fills that occurred during order execution
+	repeated uint64 canceled_venue_order_ids = 11; // IDs of orders that were canceled during execution
+
+	google.protobuf.Timestamp placed_at = 12;   // The timestamp of when the order was accepted by the system (ISO 8601)
+	google.protobuf.Timestamp traded_at = 13;   // The timestamp of when the order was accepted by the system (ISO 8601)
+	google.protobuf.Timestamp rejected_at = 14; // The timestamp of when the order was accepted by the system (ISO 8601)
+	optional uint64 meseq = 15; // Authoritative matching-engine sequence for this response
+	optional int64 met = 16; // Authoritative matching-engine event time (Unix microseconds)
+}
+
+// Requests cancellation of an order in the matching engine
+message MatchingCancelOrderRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1; // The subaccount ID placing the order
+	uint64 venue_order_id = 2; // The system-generated order ID
+	string symbol = 3;         // The market identifier. Helps route the request and provides context
+}
+
+// Returns the result of an order cancellation
+message MatchingCancelOrderResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	int64 sub_account_id = 1;                  // The subaccount ID placing the order
+	uint64 venue_order_id = 2;                  // The system-generated order ID
+	string symbol = 3;                          // The market identifier. Helps route the request and provides context
+	CancelStatus status = 4;                    // The status of the cancel operation
+	uint64 cancelled_quantity = 5;              // The quantity of the order that was cancelled
+	google.protobuf.Timestamp cancelled_at = 6; // The timestamp when the order was cancelled (ISO 8601)
+	optional uint64 meseq = 7; // Authoritative matching-engine sequence for this response
+	optional int64 met = 8; // Authoritative matching-engine event time (Unix microseconds)
+}
+
+// Requests modification of an existing order in the matching engine
+message MatchingModifyOrderRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1; // The subaccount ID placing the order
+	uint64 venue_order_id = 2; // The system-generated order ID
+	string symbol = 3;         // The market identifier, e.g., "BTC-USD"
+	common.Side side = 4;      // The side of the order using enum from common.proto
+	common.OrderType type = 5; // The type of order using enum from common.proto
+	uint64 quantity = 6;       // The quantity of the order
+	uint64 price = 7;          // The limit price. Required for LIMIT orders, must be null for MARKET orders
+}
+
+// Returns the result of an order modification (cancel/replace)
+message MatchingModifyOrderResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	int64 sub_account_id = 1;                  // The subaccount ID placing the order
+	uint64 venue_order_id = 2;                  // The system-generated order ID
+	string symbol = 3;                          // The market of the order
+	common.Side side = 4;                       // The side of the order using enum from common.proto
+	common.OrderType type = 5;                  // The type of the order using enum from common.proto
+	uint64 org_quantity = 6;                    // The original size of the order
+	uint64 new_quantity = 7;                    // The new size of the order
+	uint64 price = 8;                           // The price of the order
+	ModifyStatus status = 9;                    // The status of the modify operation
+	uint64 remaining_quantity = 10;             // The size of the new order that is not yet filled
+	google.protobuf.Timestamp modified_at = 11; // The timestamp when the order was modified (ISO 8601)
+
+	// Enhanced fields for detailed execution information
+	repeated Fill fills = 12;                      // All fills that occurred during order modification
+	repeated uint64 canceled_venue_order_ids = 13; // IDs of orders that were canceled during modification
+
+	google.protobuf.Timestamp traded_at = 14;
+	optional uint64 meseq = 15; // Authoritative matching-engine sequence for this response
+	optional int64 met = 16; // Authoritative matching-engine event time (Unix microseconds)
+	google.protobuf.Timestamp rejected_at = 17; // The timestamp of when the modify was rejected
+}

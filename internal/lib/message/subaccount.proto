@@ -1,0 +1,1510 @@
+// Proto definition for Synthetix V4-Offchain SubAccount Service
+// To compile:
+// protoc --go_out=. --go-grpc_out=. subaccount.proto
+
+syntax = "proto3";
+
+package synthetix.v4_offchain.subaccount;
+
+option go_package = "github.com/Synthetixio/v4-offchain/lib/message/grpc";
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+// Provides gRPC API for subaccount management
+service SubaccountService {
+	// Creates a new subaccount
+	rpc CreateSubaccount(CreateSubaccountRequest) returns (SubaccountResponse);
+
+	// Updates an existing subaccount
+	rpc UpdateSubaccount(UpdateSubaccountRequest) returns (SubaccountResponse);
+	rpc UpdateSubAccountMarketLeverage(UpdateSubAccountMarketLeverageRequest) returns (UpdateSubAccountMarketLeverageResponse);
+
+	// Lists subaccounts with filtering and pagination
+	rpc ListSubaccounts(ListSubaccountsRequest) returns (ListSubaccountsResponse);
+	// Fetches a single subaccount by ID
+	rpc GetSubaccount(GetSubaccountRequest) returns (SubaccountInfo);
+
+	// Retrieves order history for a subaccount
+	rpc GetOrderHistory(GetOrderHistoryRequest) returns (GetOrderHistoryResponse);
+
+	// Retrieves trade history for a subaccount
+	rpc GetTradeHistory(GetTradeHistoryRequest) returns (GetTradeHistoryResponse);
+
+	// Retrieves the most recent trades for a market (public data)
+	rpc GetLastTrades(GetLastTradesRequest) returns (GetLastTradesResponse);
+
+	// Retrieves closed position history for a subaccount
+	rpc GetPositionHistory(GetPositionHistoryRequest) returns (GetPositionHistoryResponse);
+
+	// Retrieves open positions for a subaccount
+	rpc GetPositions(GetPositionsRequest) returns (GetPositionsResponse);
+
+	// Retrieves open orders for a subaccount
+	rpc GetOpenOrders(GetOpenOrdersRequest) returns (GetOpenOrdersResponse);
+
+	// Retrieves all open limit orders for recovery purposes
+	rpc GetOpenLimitOrders(GetOpenLimitOrdersRequest) returns (GetOpenLimitOrdersResponse);
+
+	// Retrieves expired open orders for Trading's expiration sweeper.
+	rpc GetExpiredOpenOrders(GetExpiredOpenOrdersRequest) returns (GetExpiredOpenOrdersResponse);
+
+	// Retrieves all subaccounts with their basic information
+	rpc GetAllSubaccounts(GetAllSubaccountsRequest) returns (GetAllSubaccountsResponse);
+
+	// Retrieves SLP account mappings for markets and collaterals
+	rpc GetSLPMappings(GetSLPMappingsRequest) returns (GetSLPMappingsResponse);
+
+	// Updates leverages for multiple subaccounts in batch
+	rpc BatchUpdateLeverages(BatchUpdateLeveragesRequest) returns (BatchUpdateLeveragesResponse);
+
+	// Delegation management methods
+	rpc CreateDelegation(CreateDelegationRequest) returns (CreateDelegationResponse);
+	rpc RemoveDelegation(RemoveDelegationRequest) returns (RemoveDelegationResponse);
+	rpc RemoveAllDelegations(RemoveAllDelegationsRequest) returns (RemoveAllDelegationsResponse);
+	rpc GetDelegations(GetDelegationsRequest) returns (GetDelegationsResponse);
+	rpc GetDelegationsForDelegate(GetDelegationsForDelegateRequest) returns (GetDelegationsForDelegateResponse);
+	rpc VerifySubaccountAuthorization(VerifySubaccountAuthorizationRequest) returns (VerifySubaccountAuthorizationResponse);
+
+	// Gets the latest funding rates for provided symbols (or all if none provided)
+	rpc GetLatestFundingRates(GetLatestFundingRatesRequest) returns (GetLatestFundingRatesResponse);
+
+	// Gets historical funding rates for a symbol
+	rpc GetFundingRateHistory(GetFundingRateHistoryRequest) returns (GetFundingRateHistoryResponse);
+
+	// Retrieves funding payment history for a subaccount with aggregation
+	rpc GetFundingPayments(GetFundingPaymentsRequest) returns (GetFundingPaymentsResponse);
+
+	// Retrieves open positions for a subaccount by symbol
+	rpc GetPositionsBySymbol(GetPositionsBySymbolRequest) returns (GetPositionsBySymbolResponse);
+
+	// Retrieves only the total OI quantities for a symbol (lightweight, for matching service)
+	rpc GetOITotalsBySymbol(GetOITotalsBySymbolRequest) returns (GetOITotalsBySymbolResponse);
+
+	// Retrieves OI totals for all symbols in a single query (for market prices endpoint)
+	rpc GetAllOITotals(GetAllOITotalsRequest) returns (GetAllOITotalsResponse);
+
+	// Retrieves historical performance metrics (account value, PnL, volume)
+	rpc GetPerformanceHistory(GetPerformanceHistoryRequest) returns (GetPerformanceHistoryResponse);
+
+	// Admin: Update subaccount status (freeze/unfreeze)
+	rpc UpdateSubaccountStatus(UpdateSubaccountStatusRequest) returns (UpdateSubaccountStatusResponse);
+
+	// Admin: Withdraw blacklist (relayer disputes withdrawals for these wallets)
+	rpc AddToWithdrawBlacklist(AddToWithdrawBlacklistRequest) returns (AddToWithdrawBlacklistResponse);
+	rpc ListWithdrawBlacklist(ListWithdrawBlacklistRequest) returns (ListWithdrawBlacklistResponse);
+	rpc RemoveFromWithdrawBlacklist(RemoveFromWithdrawBlacklistRequest) returns (RemoveFromWithdrawBlacklistResponse);
+
+	// Admin: Assign a wallet to a custom fee tier
+	rpc AssignWalletTier(AssignWalletTierRequest) returns (AssignWalletTierResponse);
+
+	// Admin: Unbrick subaccount with pending withdrawal
+	rpc UnbrickPendingWithdraw(UnbrickPendingWithdrawRequest) returns (UnbrickPendingWithdrawResponse);
+
+	// Insurance RPC
+	rpc GetInsuranceSubscription(GetInsuranceSubscriptionRequest) returns (GetInsuranceSubscriptionResponse);
+	rpc GetInsuranceProtection(GetInsuranceProtectionRequest) returns (GetInsuranceProtectionResponse);
+	rpc CreateDefaultInsuranceSubscription(CreateDefaultInsuranceSubscriptionRequest) returns (CreateDefaultInsuranceSubscriptionResponse);
+
+	// Retrieves deposit and withdrawal history for a subaccount
+	rpc GetBalanceUpdates(GetBalanceUpdatesRequest) returns (GetBalanceUpdatesResponse);
+
+	// Transfers collateral between two subaccounts owned by the same wallet
+	rpc TransferBetweenSubAccounts(TransferBetweenSubAccountsRequest) returns (TransferBetweenSubAccountsResponse);
+
+	// Retrieves transfer history for a subaccount (as sender or receiver)
+	rpc GetTransfers(GetTransfersRequest) returns (GetTransfersResponse);
+
+	// Retrieves trades that contributed to a specific position's lifecycle
+	rpc GetTradesForPosition(GetTradesForPositionRequest) returns (GetTradesForPositionResponse);
+
+	// Snaxpot: current number-selection preference for a subaccount wallet
+	rpc GetSnaxpotNumberPreference(GetSnaxpotNumberPreferenceRequest) returns (GetSnaxpotNumberPreferenceResponse);
+	// Snaxpot: opt into snax_only by saving a Snax-ball for the given scope
+	rpc SetSnaxpotPreference(SetSnaxpotPreferenceRequest) returns (SetSnaxpotPreferenceResponse);
+	// Snaxpot: clear the Snax-ball for the given scope; when no scoped
+	// preference remains the wallet falls back to auto
+	rpc ClearSnaxpotPreference(ClearSnaxpotPreferenceRequest) returns (ClearSnaxpotPreferenceResponse);
+	// Snaxpot: overwrite already-issued ticket numbers for selected tickets
+	rpc SaveSnaxpotTickets(SaveSnaxpotTicketsRequest) returns (SaveSnaxpotTicketsResponse);
+	// Snaxpot: ticket status, issued tickets, and effective preferences
+	rpc GetSnaxpotTicketStatus(GetSnaxpotTicketStatusRequest) returns (GetSnaxpotTicketStatusResponse);
+}
+
+// Requests creation of a new subaccount
+message CreateSubaccountRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string wallet_address = 1;
+	string name = 2;
+	string request_id = 3;
+}
+
+// Requests an update to an existing subaccount
+message UpdateSubaccountRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 id = 1;
+	string name = 2;
+	DeadManSwitchState dead_man_switch = 3;
+}
+
+// Requests a single subaccount by ID
+message GetSubaccountRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;
+}
+
+// Requests a leverage change for a specific market on a subaccount
+message UpdateSubAccountMarketLeverageRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1;
+	uint32 leverage = 2;
+	int64 sub_account_id = 3;
+}
+
+// Returns the result of a market leverage update
+message UpdateSubAccountMarketLeverageResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string message = 1;
+	uint32 prev_leverage = 2;
+	uint32 new_leverage = 3;
+}
+
+// Requests a list of subaccounts by ID or wallet address
+// Provide sub_account_id to look up by subaccount (returns master + all sub-accounts),
+// or wallet_address to look up by wallet (returns all accounts owned by wallet).
+// If both are provided, sub_account_id takes priority
+message ListSubaccountsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1; // The subaccount ID (returns master + all sub-accounts)
+	string wallet_address = 2; // The wallet address (returns all accounts owned by wallet)
+}
+
+// Represents collateral balance information for a subaccount
+message CollateralInfo {
+	string collateral = 1;
+	string quantity = 2;
+	string withdrawable_amount = 3;
+	string pending_withdrawal_amount = 4;
+	string collateral_value = 5;                  // Raw USDT value (qty × price, no haircuts)
+	string adjusted_collateral_value = 6;         // Haircut-adjusted USDT value
+	string price = 7;                             // Raw market price used for collateral value calculation
+	google.protobuf.Timestamp calculated_at = 8;  // When the collateral price was last updated (nil for USDT)
+	string haircut_rate = 9;                      // Matching tier's marginal haircut rate (0 = no haircut, 0.1 = 10% haircut)
+	string haircut_adjustment = 10;                // Tier's bracket-continuity constant (0 for single-tier configs)
+}
+
+// Represents detailed subaccount information including margin and positions
+message SubaccountInfo {
+	string name = 1;
+	int64 id = 2;
+	optional int64 master_account_id = 3;
+	repeated CollateralInfo collaterals = 4;
+	MarginSummary margin_summary = 5;
+	// TODO: remove positions once get positions endpoint is implemented
+	repeated PositionItem positions = 6;
+	map<string, uint32> leverages = 7;
+	string maker_fee_rate = 8;
+	string taker_fee_rate = 9;
+	string tier_name = 10;
+	repeated DelegationInfo delegations = 11;
+	int64 max_sub_accounts = 12;
+	int64 max_orders_per_market = 13;
+	int64 max_total_orders = 14;
+	string max_borrow_capacity = 15;
+}
+
+// Contains margin calculations for a subaccount
+message MarginSummary {
+	string account_value = 1;
+	string available_margin = 2;
+	string unrealized_pnl = 3;
+	string maintenance_margin = 4;
+	string initial_margin = 5;
+	string withdrawable = 6; // Total withdrawable amount across all collaterals in USDT
+	string adjusted_account_value = 7;
+	string debt = 8; // USDT debt after positive UPNL offset (zero when USDT >= 0)
+}
+
+// Returns basic subaccount data after creation or update
+message SubaccountResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 id = 1;             // TODO: change to int64
+	int64 sub_account_id = 2; // TODO: rename to `master_subaccount_id`
+	string name = 3;
+	reserved 4; // was: balance (replaced by account_value / adjusted_account_value)
+	int64 max_sub_accounts = 5;
+	string account_value = 6;          // Raw collateral sum + UPNL (display only)
+	string adjusted_account_value = 7; // Haircut-adjusted collateral sum + UPNL (used for margin checks)
+	int64 max_orders_per_market = 8;
+	int64 max_total_orders = 9;
+	string max_borrow_capacity = 10;
+}
+
+// Returns the list of subaccounts
+message ListSubaccountsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated SubaccountInfo subaccounts = 1;
+}
+
+// Requests order history for a subaccount with optional filters
+message GetOrderHistoryRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;                         // Required: subaccount ID
+	optional google.protobuf.Timestamp start_time = 2; // Optional: start time (ISO 8601 format)
+	optional google.protobuf.Timestamp end_time = 3;   // Optional: end time (ISO 8601 format)
+	optional int32 offset = 4;                         // Optional: pagination offset (default 0)
+	optional int32 limit = 5;                          // Optional: pagination limit (default 50, or 20 if no time range)
+	repeated string status_filter = 6;
+	bool is_pretty = 7;
+	string client_order_id = 8;                        // Optional (as sentinel ""): filter by client order ID
+}
+
+// Represents a single order history record
+message OrderHistoryItem {
+	int64 id = 1;
+	int64 sub_account_id = 2;
+	common.OrderId order_id = 3;
+	common.OrderId tp_order_id = 4;
+	common.OrderId sl_order_id = 5;
+	string symbol = 6;
+	string side = 7;
+	string type = 8;
+	string direction = 9;
+	string price = 10;
+	string quantity = 11;
+	string value = 12;
+	string time_in_force = 13;
+	string filled_quantity = 14;
+	string filled_price = 15;
+	string status = 16;
+	google.protobuf.Timestamp created_at = 17;
+	bool triggered_by_liquidation = 18;
+	bool reduce_only = 19;
+	bool post_only = 20;
+	google.protobuf.Timestamp updated_at = 21;
+	optional google.protobuf.Timestamp expires_at = 22;
+	optional string cancel_reason = 23;
+	optional string trigger_price = 24;
+	optional string trigger_price_type = 25;
+}
+
+// Returns order history with pagination
+message GetOrderHistoryResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated OrderHistoryItem orders = 1;
+	int32 offset = 2;
+	int32 limit = 3;
+}
+
+// Requests trade history for a subaccount or market
+message GetTradeHistoryRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	optional int64 sub_account_id = 1;                // Optional: subaccount ID (0 or omitted for market-wide trades)
+	optional google.protobuf.Timestamp start_time = 2; // Optional: start time (ISO 8601 format)
+	optional google.protobuf.Timestamp end_time = 3;   // Optional: end time (ISO 8601 format)
+	optional int32 offset = 4;                         // Optional: pagination offset (default 0)
+	optional int32 limit = 5;                          // Optional: pagination limit (default 50)
+	optional string symbol = 6;                        // Optional: filter by symbol (required for market-wide trades)
+	string client_order_id = 7;                        // Optional (as sentinel ""): filter by client order ID (subaccount-scoped only)
+	optional uint64 venue_order_id = 8;                // Optional: filter by venue order ID
+}
+
+// Represents a single trade history record
+message TradeHistoryItem {
+	uint64 id = 1;
+	int64 sub_account_id = 2;
+	common.OrderId order_id = 3;
+	string symbol = 4;
+	string order_type = 5;
+	string direction = 6;
+	string filled_price = 7;
+	string filled_quantity = 8;
+	string filled_value = 9;
+	string fill_type = 10;
+	google.protobuf.Timestamp traded_at = 11;
+	string fee = 12;
+	string closed_pnl = 13;
+	string mark_price = 14;
+	string entry_price = 15;
+	bool triggered_by_liquidation = 16;
+	string fee_rate = 17;
+	bool post_only = 18;
+	bool reduce_only = 19;
+	int64 trade_id = 20;
+}
+
+// Returns trade history with pagination
+message GetTradeHistoryResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated TradeHistoryItem trades = 1;
+	repeated PublicTradeHistoryItem public_trades = 2; // Used when subAccountId is 0 for market-wide data
+	int32 total_count = 3;
+	int32 offset = 4;
+	int32 limit = 5;
+	bool has_more = 6;
+}
+
+// Requests trades that contributed to a specific position
+message GetTradesForPositionRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	int64 sub_account_id = 1;
+	uint64 position_id = 2;
+	optional int32 offset = 3;
+	optional int32 limit = 4;
+}
+
+// Returns trades linked to a position
+message GetTradesForPositionResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	repeated TradeHistoryItem trades = 1;
+	int32 offset = 3;
+	int32 limit = 4;
+	bool has_more = 5;
+}
+
+// Represents a trade history record for public consumption
+message PublicTradeHistoryItem {
+	uint64 id = 1;                           // Trade ID
+	string symbol = 2;                       // Trading pair symbol
+	string direction = 3;                    // Trade direction (e.g., "Open Long", "Close Short")
+	string filled_price = 4;                 // Execution price
+	string filled_quantity = 5;              // Executed quantity
+	string fill_type = 6;                    // MAKER/TAKER
+	google.protobuf.Timestamp traded_at = 7; // Trade timestamp
+}
+
+// Requests the most recent trades for a market
+message GetLastTradesRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1;        // Required: trading pair symbol (e.g., "BTC-USD")
+	optional int32 limit = 2; // Optional: number of trades to return (default 50, max 100)
+}
+
+// Returns recent market trades
+message GetLastTradesResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated PublicTradeHistoryItem trades = 1; // Array of recent trades
+}
+
+// Requests open positions for a subaccount
+message GetPositionsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;
+	optional google.protobuf.Timestamp start_time = 2; // start time (ISO 8601 format)
+	optional google.protobuf.Timestamp end_time = 3;   // end time (ISO 8601 format)
+	optional int32 offset = 4;                         // pagination offset (default 0)
+	optional int32 limit = 5;                          // pagination limit (default 50)
+}
+
+// Requests open positions for a subaccount filtered by symbol
+message GetPositionsBySymbolRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;
+	string symbol = 2; // Trading pair symbol
+}
+
+// Represents a single position record
+message PositionItem {
+	uint64 id = 1;
+	int64 sub_account_id = 2;
+	string symbol = 3;
+	string side = 4; // "short" or "long"
+	string entry_price = 5;
+	string quantity = 6;
+	string pnl = 7;  // Realized PnL
+	string upnl = 8; // Unrealized PnL
+	string used_margin = 9;
+	string maintenance_margin = 10;
+	string liquidation_price = 11;
+	string action = 12; // "open", "close", or "update"
+	repeated common.OrderId take_profit_order_ids = 13;
+	repeated common.OrderId stop_loss_order_ids = 14;
+	google.protobuf.Timestamp updated_at = 15;
+	google.protobuf.Timestamp created_at = 16;
+	string net_position_funding_pnl = 17; // Net funding PnL for this position
+	int64 adl_bucket = 18; // ADL priority bucket (1–5, 5 = highest risk; 1 = default/lowest risk)
+}
+
+// Returns open positions with pagination
+message GetPositionsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated PositionItem positions = 1;
+	int32 offset = 2;
+	int32 limit = 3;
+}
+
+// Returns open positions grouped by long and short for a symbol
+message GetPositionsBySymbolResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated PositionItem long_positions = 1;
+	repeated PositionItem short_positions = 2;
+	string total_long_quantity = 3;
+	string total_short_quantity = 4;
+}
+
+message GetPositionHistoryRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	int64 sub_account_id = 1;
+	optional string symbol = 2;
+	optional google.protobuf.Timestamp start_time = 3;
+	optional google.protobuf.Timestamp end_time = 4;
+	optional int32 offset = 5;
+	optional int32 limit = 6;
+}
+
+message PositionHistoryItem {
+	uint64 id = 1;
+	uint64 position_id = 2;
+	int64 sub_account_id = 3;
+	string symbol = 4;
+	string side = 5;                          // "long" or "short"
+	string entry_price = 6;
+	string quantity = 7;
+	string close_price = 8;
+	string close_reason = 9;                  // "close", "flip", "liquidation"
+	string realized_pnl = 10;
+	string accumulated_fees = 11;
+	string net_funding_pnl = 12;
+	google.protobuf.Timestamp closed_at = 13;
+	google.protobuf.Timestamp created_at = 14;
+	int64 trade_id = 15;
+	optional uint32 leverage = 16;
+}
+
+message GetPositionHistoryResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	repeated PositionHistoryItem positions = 1;
+	int32 offset = 3;
+	int32 limit = 4;
+	bool has_more = 5;
+}
+
+// Lightweight request to get only OI totals for a symbol (for matching service initialization)
+message GetOITotalsBySymbolRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1; // Trading pair symbol (e.g., "BTC-USD")
+}
+
+// Lightweight response with only OI totals (no full position data)
+message GetOITotalsBySymbolResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string total_long_quantity = 1;  // Total long position quantity for the symbol
+	string total_short_quantity = 2; // Total short position quantity for the symbol
+}
+
+// Requests OI totals for all symbols in a single query
+message GetAllOITotalsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+}
+
+// OI totals for a single symbol
+message OITotalsItem {
+	string symbol = 1;               // Trading pair symbol (e.g., "BTC-USD")
+	string total_long_quantity = 2;   // Total long position quantity
+	string total_short_quantity = 3;  // Total short position quantity
+}
+
+// Response containing OI totals for all symbols
+message GetAllOITotalsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated OITotalsItem items = 1; // OI totals per symbol
+}
+
+// Requests open orders for a subaccount with optional filters
+message GetOpenOrdersRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;                         // Required: subaccount ID
+	optional string symbol = 2;                        // Optional: symbol filter (e.g., "ETH-USD")
+	optional google.protobuf.Timestamp start_time = 3; // Optional: start time (ISO 8601 format)
+	optional google.protobuf.Timestamp end_time = 4;   // Optional: end time (ISO 8601 format)
+	optional int32 offset = 5;                         // Optional: pagination offset (default 0)
+	optional int32 limit = 6;                          // Optional: pagination limit (default 50)
+	string client_order_id = 7;                        // Optional (as sentinel ""): filter by client order ID
+}
+
+// Represents a single open order record
+message OpenOrderItem {
+	common.OrderId order_id = 1;
+	int64 sub_account_id = 2;
+	string symbol = 3;
+	string side = 4;                      // "buy" or "sell"
+	string type = 5;                      // Order type (e.g., "limit", "market")
+	string direction = 6;                 // Direction (e.g., "open", "close")
+	common.TimeInForce time_in_force = 7; // Time in force (e.g., "GTC", "IOC")
+	string price = 8;
+	int64 price_exponent = 9;
+	string quantity = 10;
+	int64 quantity_exponent = 11;
+	string remaining_quantity = 12;
+	bool reduce_only = 13;
+	bool post_only = 14;
+	common.OrderId take_profit_order_id = 15;
+	common.OrderId stop_loss_order_id = 16;
+	uint64 position_id = 17;
+	string trigger_price = 18;
+	string trigger_price_type = 19;
+	google.protobuf.Timestamp updated_at = 20;
+	google.protobuf.Timestamp created_at = 21;
+	bool close_position = 22;
+	optional google.protobuf.Timestamp expires_at = 23;
+	// JSON snapshot of TWAP parent execution state; only for type TWAP.
+	optional string twap_execution_state = 24;
+}
+
+// Returns open orders with pagination
+message GetOpenOrdersResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated OpenOrderItem orders = 1;
+	int32 offset = 2;
+	int32 limit = 3;
+}
+
+// Requests all open limit orders for recovery purposes
+message GetOpenLimitOrdersRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	// Pagination parameters
+	int32 offset = 1; // Starting position (default: 0)
+	int32 limit = 2;  // Maximum number of orders to return (default: 1000, max: 1000)
+}
+
+// Returns all open limit orders with pagination
+message GetOpenLimitOrdersResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated OpenOrderItem orders = 1;
+	int32 total_count = 2; // Total number of orders available
+	int32 offset = 3;      // Offset used in this response
+	int32 limit = 4;       // Limit used in this response
+	bool has_more = 5;     // Whether there are more orders available
+}
+
+// Requests expired open orders for the Trading expiration sweeper.
+message GetExpiredOpenOrdersRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	google.protobuf.Timestamp cutoff_time = 1; // Required: return open orders expired at or before this time
+	int32 offset = 2; // Starting position (default: 0)
+	int32 limit = 3;  // Maximum number of orders to return
+}
+
+// Returns expired open orders with pagination.
+message GetExpiredOpenOrdersResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated OpenOrderItem orders = 1;
+	int32 total_count = 2;
+	int32 offset = 3;
+	int32 limit = 4;
+	bool has_more = 5;
+}
+
+// Requests all subaccounts with basic information
+message GetAllSubaccountsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	optional int32 offset = 1; // Optional: pagination offset (default 0)
+	optional int32 limit = 2;  // Optional: pagination limit (default 100)
+}
+
+// Note: Using CollateralInfo instead of creating a duplicate BasicCollateral type
+
+// Represents a symbol-leverage pair
+message LeverageInfo {
+	string symbol = 1;
+	uint32 leverage = 2;
+}
+
+// Represents complete order information for the all-subaccounts snapshot
+message BasicOrder {
+	common.OrderId order_id = 1;
+	int64 sub_account_id = 2;
+	string symbol = 3;
+	int32 side = 4;          // OrderSide enum value
+	int32 type = 5;          // OrderType enum value
+	int32 direction = 6;     // Direction enum value
+	int32 time_in_force = 7; // TimeInForce enum value
+	string price = 8;
+	int64 price_exponent = 9;
+	string quantity = 10;
+	string remaining_quantity = 11;
+	string margin = 12;
+	bool reduce_only = 13;
+	bool post_only = 14;
+	common.OrderId take_profit_order_id = 15;
+	common.OrderId stop_loss_order_id = 16;
+	uint64 position_id = 17;
+	int32 action = 18; // OpenOrderEventAction enum value
+	string trigger_price = 19;
+	int32 trigger_price_type = 20; // TriggerPriceType enum value
+	bool is_active = 21;           // Whether conditional order is active (monitoring for trigger)
+	bool close_position = 22;      // Close entire position when triggered (TP/SL only)
+	google.protobuf.Timestamp created_at = 23;
+	google.protobuf.Timestamp placed_at = 24;
+	google.protobuf.Timestamp modified_at = 25;
+	google.protobuf.Timestamp traded_at = 26;
+	int32 original_type = 27; // Pre-conversion OrderType; preserves conditional type across restarts
+	// JSON snapshot of TWAP parent execution state (trading TWAPExecution); only for type TWAP.
+	optional string twap_execution_state = 28;
+}
+
+// Represents complete position information for the all-subaccounts snapshot
+message BasicPosition {
+	uint64 id = 1;
+	int64 sub_account_id = 2;
+	string symbol = 3;
+	int32 side = 4; // PositionSide enum value (0: Short, 1: Long)
+	string entry_price = 5;
+	string quantity = 6;
+	string pnl = 7;  // Realized PnL
+	string upnl = 8; // Unrealized PnL
+	string used_margin = 9;
+	string maintenance_margin = 10;
+	string liquidation_price = 11;
+	int32 action = 12; // PositionEventAction enum value (0: Open, 1: Close, 2: Update)
+	repeated common.OrderId take_profit_order_ids = 13;
+	repeated common.OrderId stop_loss_order_ids = 14;
+	string net_position_funding_pnl = 15; // Net funding PnL for this position
+	google.protobuf.Timestamp created_at = 16;
+	google.protobuf.Timestamp modified_at = 17;
+	string accumulated_realized_pnl = 18;        // Accumulated realized PnL from partial closes
+	string accumulated_fees = 19;                 // Accumulated trading fees over position lifetime (open, increase, reduce, close)
+	string accumulated_close_value = 20;          // Sum of (fillPrice * fillQty) across reducing fills
+	string accumulated_close_quantity = 21;       // Sum of fillQty across reducing fills
+	int64 adl_bucket = 22; // ADL priority bucket (1–5, 5 = highest risk; 1 = default/lowest risk)
+}
+
+// Represents the persisted dead-man-switch lease for a subaccount.
+message DeadManSwitchState {
+	bool is_active = 1;
+	int64 timeout_seconds = 2;
+	google.protobuf.Timestamp trigger_time = 3;
+	uint64 generation = 5;
+}
+
+// Represents basic information for a single subaccount
+message SubaccountBasicInfo {
+	int64 id = 1;
+	string name = 2;
+	string wallet_address = 3;
+	repeated CollateralInfo collaterals = 4;
+	repeated LeverageInfo leverages = 5;
+	repeated BasicOrder open_orders = 6;
+	repeated BasicPosition positions = 7;
+	bool is_master = 8; // Whether this is a master account
+	int32 type = 9;     // Account type: 0=normal, 1=slp
+	string taker_fee = 10;
+	string maker_fee = 11;
+	DeadManSwitchState dead_man_switch = 12;
+	int64 max_orders_per_market = 13;
+	int64 max_total_orders = 14;
+	string max_borrow_capacity = 15;
+}
+
+// Returns all subaccounts with pagination
+message GetAllSubaccountsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated SubaccountBasicInfo subaccounts = 1;
+	int32 total_count = 2;
+	int32 offset = 3;
+	int32 limit = 4;
+	bool has_more = 5;
+}
+
+// Represents a single SLP account mapping for a market or collateral
+message SLPMapping {
+	int64 slp_account_id = 1;
+	optional int64 market_id = 2;     // Market ID (null if collateral mapping)
+	optional int64 collateral_id = 3; // Collateral ID (null if market mapping)
+	string market_symbol = 4;         // Market symbol (e.g., "BTC-USDT")
+	string collateral_symbol = 5;     // Collateral symbol (e.g., "USDT")
+}
+
+// Requests all SLP account mappings
+message GetSLPMappingsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+}
+
+// Returns all SLP account mappings
+message GetSLPMappingsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated SLPMapping mappings = 1;
+}
+
+// Represents leverage settings for a single subaccount in a batch update
+message BatchLeverageUpdate {
+	int64 sub_account_id = 1;
+	repeated LeverageInfo leverages = 2;
+}
+
+// Requests leverage updates for multiple subaccounts
+message BatchUpdateLeveragesRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated BatchLeverageUpdate updates = 1;
+}
+
+// Returns the result of a batch leverage update
+message BatchUpdateLeveragesResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+}
+
+// Requests creation of a delegation for a subaccount
+message CreateDelegationRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;                         // Required: subaccount ID
+	string delegate_address = 2;                       // Required: delegate wallet address
+	repeated string permissions = 3;                   // Required: permissions (currently only "trading" supported)
+	optional google.protobuf.Timestamp expires_at = 4; // Optional: expiration time
+	string signer_address = 5;   // Required: wallet address of the caller performing the creation
+}
+
+// Returns the created delegation details
+message CreateDelegationResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	uint64 id = 1;                                     // Delegation ID
+	int64 sub_account_id = 2;                         // Subaccount ID
+	string delegate_address = 3;                       // Delegate wallet address
+	repeated string permissions = 4;                   // Granted permissions
+	optional google.protobuf.Timestamp expires_at = 5; // Expiration time
+	google.protobuf.Timestamp created_at = 6;          // Creation timestamp
+}
+
+// Requests removal of a delegation from a subaccount
+message RemoveDelegationRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;   // Required: subaccount ID
+	string delegate_address = 2; // Required: delegate wallet address
+	string signer_address = 3;   // Required: wallet address of the caller performing the removal
+}
+
+// Returns the result of a delegation removal
+message RemoveDelegationResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;   // Subaccount ID
+	string delegate_address = 2; // Removed delegate wallet address
+	bool success = 3;                                  // Success status
+	repeated string cascade_removed_addresses = 4;     // Addresses cascade-deleted because they were created by the removed delegate
+}
+
+// Requests removal of all delegations from a subaccount
+message RemoveAllDelegationsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1; // Required: subaccount ID
+	string signer_address = 2; // Required: wallet address of the caller
+}
+
+// Returns the result of removing all delegations
+message RemoveAllDelegationsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;           // Subaccount ID
+	repeated string removed_signers = 2; // List of removed delegate addresses
+}
+
+// Requests all delegations for a subaccount
+message GetDelegationsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1; // Required: subaccount ID
+}
+
+// Represents a single delegation record
+message DelegationInfo {
+	uint64 id = 1;                                     // Delegation ID
+	int64 sub_account_id = 2;                         // Subaccount ID
+	string delegate_address = 3;                       // Delegate wallet address
+	repeated string permissions = 4;                   // Granted permissions
+	optional google.protobuf.Timestamp expires_at = 5; // Expiration time
+	google.protobuf.Timestamp created_at = 6;          // Creation timestamp
+	google.protobuf.Timestamp updated_at = 7;          // Last update timestamp
+	optional string added_by = 8;                      // Address that created this delegation (nil for pre-migration records)
+}
+
+// Returns all delegations for a subaccount
+message GetDelegationsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated DelegationInfo delegations = 1; // List of delegations
+}
+
+// Request to get all delegations where the given address is the delegate
+message GetDelegationsForDelegateRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string delegate_address = 1; // Required: delegate wallet address
+}
+
+// Delegation info with owner details (for reverse lookup)
+message DelegationWithOwnerInfo {
+	uint64 id = 1;
+	int64 sub_account_id = 2;
+	string delegate_address = 3;
+	repeated string permissions = 4;
+	optional google.protobuf.Timestamp expires_at = 5;
+	google.protobuf.Timestamp created_at = 6;
+	google.protobuf.Timestamp updated_at = 7;
+	string owner_address = 8;  // Owner's wallet address
+	string account_name = 9;   // Subaccount name
+	optional string added_by = 10; // Address that created this delegation (nil for pre-migration records)
+	string account_value = 11; // Total account value in USDT
+	string adjusted_account_value = 12; // Total account value in USDT
+}
+
+// Response containing delegations where the address is the delegate
+message GetDelegationsForDelegateResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated DelegationWithOwnerInfo delegations = 1;
+}
+
+// Requests the latest funding rates for specified symbols
+message GetLatestFundingRatesRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated string symbols = 1; // Optional: symbols to fetch; empty means all markets
+}
+
+// Represents funding rate info for a single symbol
+// Contains the estimated hourly rate (rolling 1-hour TWAP) and the last settlement rate
+message GetLatestFundingRatesResponseItem {
+	string symbol = 1;                                  // Symbol (e.g., "BTC-USDT")
+	string estimated_funding_rate = 2;                  // Estimated hourly funding rate (rolling 1-hour TWAP) - what users will likely be charged at next settlement
+	google.protobuf.Timestamp next_funding_time = 3;    // Next funding time timestamp (when settlement will occur)
+	int64 funding_interval_ms = 4;                      // Funding interval in milliseconds
+	string last_settlement_rate = 5;                    // The actual hourly rate from the last settlement (what users were charged)
+	google.protobuf.Timestamp last_settlement_time = 6; // When the last settlement occurred
+}
+
+// Returns the latest funding rates
+message GetLatestFundingRatesResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated GetLatestFundingRatesResponseItem funding_rates = 1; // List of funding rates by symbol
+}
+
+// Requests historical funding rates for a symbol
+message GetFundingRateHistoryRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1;                        // Required: symbol (e.g., "BTC-USDT")
+	google.protobuf.Timestamp start_time = 2; // Required: start time filter
+	google.protobuf.Timestamp end_time = 3;   // Required: end time filter
+	int32 limit = 4;                          // Required: max results to return (0 = no limit)
+}
+
+// Represents a single historical funding rate record
+message FundingRateHistoryItem {
+	string symbol = 1;                          // Trading pair symbol
+	string funding_rate = 2;                    // The published funding rate
+	google.protobuf.Timestamp funding_time = 3; // When the rate was published
+	google.protobuf.Timestamp applied_at = 4;   // When the rate was applied to positions
+}
+
+// Returns historical funding rates for a symbol
+message GetFundingRateHistoryResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1;                                 // Symbol (e.g., "BTC-USDT")
+	repeated FundingRateHistoryItem funding_rates = 2; // List of historical funding rates (newest first)
+}
+
+// Requests funding payment history for a subaccount
+message GetFundingPaymentsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;                         // Required: subaccount ID
+	optional string symbol = 2;                        // Optional: filter by symbol (e.g., "BTC-USDT")
+	optional google.protobuf.Timestamp start_time = 3; // Optional: start time (ISO 8601 format)
+	optional google.protobuf.Timestamp end_time = 4;   // Optional: end time (ISO 8601 format)
+	optional int32 limit = 5;                          // Optional: max results to return (default 100, max 1000)
+}
+
+// Represents a single funding payment record
+message FundingPaymentItem {
+	string payment_id = 1;                      // Unique payment identifier
+	string symbol = 2;                          // Trading pair symbol
+	string position_size = 3;                   // Position size at funding time (signed)
+	string funding_rate = 4;                    // Funding rate applied (1-hour rate)
+	string payment = 5;                         // Funding payment amount (negative = paid out)
+	google.protobuf.Timestamp payment_time = 6; // When payment was processed (milliseconds)
+	google.protobuf.Timestamp funding_time = 7; // Funding period timestamp (milliseconds)
+}
+
+// Contains aggregated funding payment statistics
+message FundingSummary {
+	string total_funding_received = 1; // Total funding payments received
+	string total_funding_paid = 2;     // Total funding payments paid
+	string net_funding = 3;            // Net funding (received - paid)
+	string total_payments = 4;         // Total number of funding payments
+	string average_payment_size = 5;   // Average payment size (absolute value)
+}
+
+// Returns funding payment history with summary statistics
+message GetFundingPaymentsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	FundingSummary summary = 1;                      // Aggregated funding payment statistics
+	repeated FundingPaymentItem funding_history = 2; // List of funding payments
+}
+
+// Defines the type of authorization for a subaccount
+enum AuthorizationType {
+	AUTHORIZATION_TYPE_UNSPECIFIED = 0; // Unspecified/unknown authorization type
+	AUTHORIZATION_TYPE_NONE = 1;        // No authorization found
+	AUTHORIZATION_TYPE_OWNER = 2;       // Owner of the subaccount
+	AUTHORIZATION_TYPE_DELEGATE = 3;    // Delegated access
+}
+
+// Defines the operational status of a subaccount
+enum SubaccountStatus {
+	ACCOUNT_STATUS_UNSPECIFIED = 0; // Default/unknown state
+	ACCOUNT_STATUS_ACTIVE = 1;      // Normal operation - trading enabled
+	ACCOUNT_STATUS_FROZEN = 2;      // Trading disabled - account frozen
+}
+
+// Checks if an address is authorized to act on a subaccount
+// Combines both ownership and delegation checks in a single call
+message VerifySubaccountAuthorizationRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;       // Required: subaccount ID to check
+	string address = 2;              // Required: address to verify (owner or delegate)
+	repeated string permissions = 3; // Required: permissions to check (e.g., ["trading"])
+}
+
+// Returns the authorization result
+message VerifySubaccountAuthorizationResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	bool is_authorized = 1;                   // Whether the address is authorized
+	AuthorizationType authorization_type = 2; // Type of authorization
+}
+
+// Requests historical performance metrics for a subaccount
+message GetPerformanceHistoryRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;
+	string period = 2; // Optional: one of day, week, month, threeMonth, ytd, allTime
+}
+
+// Represents a single sampled data point in performance history
+message PerformanceHistoryPoint {
+	int64 sampled_at = 1;
+	string account_value = 2;
+	string pnl = 3;
+}
+
+// Contains performance data points and volume for a time period
+message PerformanceHistoryPeriod {
+	repeated PerformanceHistoryPoint history = 1;
+	string volume = 2;
+}
+
+// Returns historical performance metrics for a subaccount
+message GetPerformanceHistoryResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string period = 1;
+	PerformanceHistoryPeriod performance = 2;
+}
+
+// Request message for UpdateSubaccountStatus
+message UpdateSubaccountStatusRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;   // SubAccount ID
+	SubaccountStatus status = 2; // New status to set (ACTIVE, FROZEN, etc.)
+}
+
+// Response message for UpdateSubaccountStatus
+message UpdateSubaccountStatusResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;       // SubAccount ID
+	SubaccountStatus old_status = 2; // Previous status
+	SubaccountStatus new_status = 3; // New status after update
+}
+
+// Requests adding a wallet to the withdraw blacklist
+message AddToWithdrawBlacklistRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string wallet_address = 1;
+}
+
+// Returns the result of adding a wallet to the blacklist
+message AddToWithdrawBlacklistResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	bool added = 1; // true if newly added, false if already listed
+}
+
+// Requests the current withdraw blacklist
+message ListWithdrawBlacklistRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+}
+
+// Returns all blacklisted wallet addresses
+message ListWithdrawBlacklistResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated string wallet_addresses = 1;
+}
+
+// Requests removal of a wallet from the withdraw blacklist
+message RemoveFromWithdrawBlacklistRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string wallet_address = 1;
+}
+
+// Returns the result of removing a wallet from the blacklist
+message RemoveFromWithdrawBlacklistResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	bool removed = 1; // true if was listed and removed, false if was not listed
+}
+
+// Request message for UnbrickPendingWithdraw
+message UnbrickPendingWithdrawRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 offchain_withdrawal_id = 1;
+}
+
+// Response message for UnbrickPendingWithdraw
+message UnbrickPendingWithdrawResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	bool success = 1;   // Whether the unbrick operation succeeded
+	string message = 2; // Status message
+}
+
+// --- Insurance Messages ---
+
+// Represents an insurance policy package configuration
+message InsurancePolicyPackage {
+	int64 id = 1;
+	string name = 2;
+	int32 protection_duration_minutes = 3;
+	string exclusion_period_ratio = 4; // decimal as string
+	string price_per_use = 5;          // decimal as string
+	bool is_active = 6;
+}
+
+// Represents a subaccount's insurance subscription or active protection
+message SubAccountInsurance {
+	int64 id = 1;
+	int64 sub_account_id = 2;
+	int64 policy_id = 3;
+	int32 status = 4; // 1=SUBSCRIBED, 2=ACTIVE_PROTECTION, 3=PROTECTION_COMPLETED
+	int64 start_time_us = 5;
+	int64 expired_time_us = 6;              // 0 if not expired
+	int64 last_position_increase_at_us = 7; // 0 if never increased
+	InsurancePolicyPackage policy = 8;
+}
+
+// Requests the active insurance subscription for a subaccount
+message GetInsuranceSubscriptionRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;
+}
+
+// Returns the active insurance subscription
+message GetInsuranceSubscriptionResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	SubAccountInsurance subscription = 1;
+	string error = 2;
+}
+
+// Requests creation of a default insurance subscription
+message CreateDefaultInsuranceSubscriptionRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;
+}
+
+// Returns the created default insurance subscription
+message CreateDefaultInsuranceSubscriptionResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	SubAccountInsurance subscription = 1;
+	string error = 2;
+}
+
+// Requests the active insurance protection for a subaccount
+message GetInsuranceProtectionRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;
+}
+
+// Returns the active insurance protection
+message GetInsuranceProtectionResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	SubAccountInsurance protection = 1;
+	string error = 2;
+}
+
+// Requests deposit and withdrawal history for a subaccount
+message GetBalanceUpdatesRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;
+	repeated string action_filter = 2; // filter by action type (DEPOSIT, WITHDRAWAL)
+	int64 offset = 3;                  // pagination offset (default 0)
+	int64 limit = 4;                   // pagination limit (default 50)
+	google.protobuf.Timestamp start_time = 5; // filter updates at or after this time (required)
+	google.protobuf.Timestamp end_time = 6;     // filter updates at or before this time (required)
+}
+
+// Represents a single balance update (deposit, withdrawal, or transfer)
+message BalanceUpdateItem {
+	int64 id = 1;                             // Transaction ID
+	int64 sub_account_id = 2;                // Subaccount ID
+	string action = 3;                        // Action type (DEPOSIT, WITHDRAWAL, TRANSFER)
+	string status = 4;                        // Transaction status (e.g., "success", "completed", "pending")
+	string amount = 5;                        // Transaction amount
+	string collateral = 6;                    // Collateral symbol (e.g., "USDT", "WETH")
+	google.protobuf.Timestamp created_at = 7; // When the transaction was created
+	optional string destination_address = 8;  // Destination address for withdrawals
+	optional string tx_hash = 9;              // On-chain transaction hash if applicable
+	optional int64 to_sub_account_id = 10;   // Target subaccount ID for transfers
+	optional int64 from_sub_account_id = 11; // Source subaccount ID for transfers
+	string fee = 12;                          // Fee charged for the transaction
+	string gross_amount = 13;                 // Total amount including fee (amount + fee)
+}
+
+// Returns deposit and withdrawal history
+message GetBalanceUpdatesResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated BalanceUpdateItem balance_updates = 1; // Array of balance updates
+}
+
+// Transfers collateral between two subaccounts owned by the same wallet
+message TransferBetweenSubAccountsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 from_sub_account_id = 1; // Source subaccount ID
+	int64 to_sub_account_id = 2;   // Destination subaccount ID
+	string symbol = 3;             // Collateral symbol (e.g., "USDT")
+	string amount = 4;             // Amount to transfer (decimal string)
+	string request_id = 5;         // Unique request ID for idempotency
+	string wallet_address = 6;     // Wallet address of the account owner
+}
+
+// Returns the result of an inter-subaccount transfer
+message TransferBetweenSubAccountsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 transfer_id = 1;                        // Unique transfer ID
+	string request_id = 2;                        // Echo of request ID
+	string status = 3;                            // "success" or "failure"
+	string from_balance = 4;                      // New balance of source account
+	string to_balance = 5;                        // New balance of destination account
+	string error_message = 6;                     // Error message if failed
+	google.protobuf.Timestamp transferred_at = 7; // Timestamp of transfer
+	string error_code = 8;                        // Machine-readable error code (e.g., "INSUFFICIENT_MARGIN")
+}
+
+// Retrieves transfer history for a subaccount (as sender or receiver)
+message GetTransfersRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	int64 sub_account_id = 1;                         // Required: subaccount to query (matches from or to)
+	int64 offset = 2;                                  // Pagination offset (default 0)
+	int64 limit = 3;                                   // Pagination limit (default 50)
+	optional google.protobuf.Timestamp start_time = 4; // Filter: transfers after this time
+	optional google.protobuf.Timestamp end_time = 5;   // Filter: transfers before this time
+	optional string symbol = 6;                        // Filter: collateral symbol
+}
+
+// Represents a single transfer history record
+message TransferHistoryItem {
+	int64 transfer_id = 1;                         // Unique transfer ID
+	int64 from_sub_account_id = 2;                 // Source subaccount
+	int64 to_sub_account_id = 3;                   // Destination subaccount
+	string symbol = 4;                             // Collateral symbol
+	string amount = 5;                             // Transfer amount
+	string transfer_type = 6;                      // Transfer type (e.g., "user", "slp_takeover")
+	string status = 7;                             // Transfer status ("success" or "failure")
+	string request_id = 8;                         // Request ID for idempotency
+	string error_message = 9;                      // Error message if failed
+	google.protobuf.Timestamp transferred_at = 10; // When the transfer occurred
+}
+
+// Returns transfer history with pagination
+message GetTransfersResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated TransferHistoryItem transfers = 1; // Array of transfers
+	int64 total_count = 2;                      // Total matching transfers
+	int64 offset = 3;                           // Applied offset
+	int64 limit = 4;                            // Applied limit
+}
+
+// Requests assignment of a wallet to a custom fee tier (admin only)
+message AssignWalletTierRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	string wallet_address = 1;
+	string tier_id = 2;
+}
+
+// Returns the result of a wallet tier assignment
+message AssignWalletTierResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	string wallet_address = 1;
+	string tier_id = 2;
+	string tier_name = 3;
+	string tier_type = 4;
+	string maker_fee_rate = 5;
+	string taker_fee_rate = 6;
+	int64 max_sub_accounts = 7;
+	int64 subaccounts_updated = 8;
+	int64 max_orders_per_market = 9;
+	int64 max_total_orders = 10;
+	string max_borrow_capacity = 11;
+}
+
+enum SnaxpotSnaxBallScope {
+	SNAXPOT_SNAX_BALL_SCOPE_UNSPECIFIED = 0;
+	SNAXPOT_SNAX_BALL_SCOPE_CURRENT_EPOCH = 1;
+	SNAXPOT_SNAX_BALL_SCOPE_PERSISTENT = 2;
+}
+
+message SnaxpotIssuedTicket {
+	uint64 ticket_serial = 1;
+	int32 ball_1 = 2;
+	int32 ball_2 = 3;
+	int32 ball_3 = 4;
+	int32 ball_4 = 5;
+	int32 ball_5 = 6;
+	int32 snax_ball = 7;
+}
+
+message SnaxpotTicketMutationEntry {
+	uint64 ticket_serial = 1;
+	int32 ball_1 = 2;
+	int32 ball_2 = 3;
+	int32 ball_3 = 4;
+	int32 ball_4 = 5;
+	int32 ball_5 = 6;
+	int32 snax_ball = 7;
+}
+
+message GetSnaxpotNumberPreferenceRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	int64 sub_account_id = 1;
+}
+
+message GetSnaxpotNumberPreferenceResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	string number_mode = 1;
+	int32 effective_snax_ball = 2;
+	int32 persistent_snax_ball = 3;
+	uint64 current_epoch_id = 4;
+	int32 current_epoch_snax_ball = 5;
+}
+
+message SetSnaxpotPreferenceRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	int64 sub_account_id = 1;
+	int32 snax_ball = 2;
+	SnaxpotSnaxBallScope scope = 3;
+	reserved 4;
+	reserved "authorization";
+}
+
+message SetSnaxpotPreferenceResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	uint64 epoch_id = 1;
+	string number_mode = 2;
+	int32 effective_snax_ball = 3;
+	int32 persistent_snax_ball = 4;
+	int32 current_epoch_snax_ball = 5;
+	SnaxpotSnaxBallScope applied_scope = 6;
+	int32 updated_ticket_count = 7;
+}
+
+message ClearSnaxpotPreferenceRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	int64 sub_account_id = 1;
+	SnaxpotSnaxBallScope scope = 2;
+	reserved 3;
+	reserved "authorization";
+}
+
+message ClearSnaxpotPreferenceResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	uint64 epoch_id = 1;
+	string number_mode = 2;
+	int32 effective_snax_ball = 3;
+	int32 persistent_snax_ball = 4;
+	int32 current_epoch_snax_ball = 5;
+	SnaxpotSnaxBallScope applied_scope = 6;
+	int32 updated_ticket_count = 7;
+}
+
+message SaveSnaxpotTicketsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	int64 sub_account_id = 1;
+	repeated SnaxpotTicketMutationEntry entries = 2;
+	reserved 3;
+	reserved "authorization";
+}
+
+message SaveSnaxpotTicketsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	uint64 epoch_id = 1;
+	int32 updated_ticket_count = 2;
+	repeated SnaxpotIssuedTicket tickets = 3;
+}
+
+message GetSnaxpotTicketStatusRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	int64 sub_account_id = 1;
+}
+
+message GetSnaxpotTicketStatusResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	uint64 epoch_id = 1;
+	int32 earned_ticket_count = 2;
+	int32 issued_ticket_count = 3;
+	string cumulative_fees_usd = 4;
+	string cumulative_purchased_usd = 5;
+	string staking_multiplier = 6;
+	string number_mode = 7;
+	int32 effective_snax_ball = 8;
+	int32 persistent_snax_ball = 9;
+	uint64 current_epoch_id = 10;
+	int32 current_epoch_snax_ball = 11;
+	repeated SnaxpotIssuedTicket tickets = 12;
+}

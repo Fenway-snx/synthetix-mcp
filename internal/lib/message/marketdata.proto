@@ -1,0 +1,172 @@
+// Proto definition for Synthetix V4-Offchain Market Data Service
+// To compile:
+// protoc --go_out=. --go-grpc_out=. marketdata.proto
+
+syntax = "proto3";
+
+package synthetix.v4_offchain.marketdata;
+
+option go_package = "github.com/Synthetixio/v4-offchain/lib/message/grpc";
+
+import "google/protobuf/timestamp.proto";
+
+// --- Service Definition ---
+
+// Provides market data functionality for orderbooks and price information
+service MarketDataService {
+	// Retrieves a complete orderbook snapshot for a symbol
+	rpc GetOrderbookSnapshot(OrderbookSnapshotRequest) returns (OrderbookSnapshotResponse);
+
+	// Retrieves orderbook depth data with specified limit
+	rpc GetOrderbookDepth(OrderbookDepthRequest) returns (OrderbookDepthResponse);
+
+	// Retrieves current market data including best bid/ask and last traded price
+	rpc GetMarketData(MarketDataRequest) returns (MarketDataResponse);
+
+	// Retrieves historical candlestick data for a symbol and timeframe
+	rpc GetCandlesticks(GetCandlesticksRequest) returns (GetCandlesticksResponse);
+
+	// Retrieves current market data for all requested symbols in a single call
+	rpc GetAllMarketData(GetAllMarketDataRequest) returns (GetAllMarketDataResponse);
+
+	// TriggerBackfill triggers historical candle backfill from Coinmetrics.
+	// If symbol is provided, backfills only that symbol; otherwise backfills all active markets.
+	rpc TriggerBackfill(TriggerBackfillRequest) returns (TriggerBackfillResponse);
+
+}
+
+// --- Message Definitions ---
+
+// Represents a single price level in the orderbook [price, quantity]
+message PriceLevel {
+	string price = 1;    // Price as string to maintain precision
+	string quantity = 2; // Quantity as string to maintain precision
+}
+
+// Requests a complete orderbook snapshot for a symbol
+message OrderbookSnapshotRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1; // Trading symbol (e.g., "BTC-USD")
+}
+
+// Returns a complete orderbook snapshot with bid and ask levels
+message OrderbookSnapshotResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1;            // Trading symbol
+	repeated PriceLevel bids = 2; // Bid levels (highest to lowest)
+	repeated PriceLevel asks = 3; // Ask levels (lowest to highest)
+}
+
+// Requests orderbook depth data with a configurable level limit
+message OrderbookDepthRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1; // Trading symbol (e.g., "BTC-USD")
+	int32 limit = 2;   // Number of price levels to return (0 means server applies default of 500)
+}
+
+// Returns orderbook depth data with bid and ask levels
+message OrderbookDepthResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1;            // Trading symbol
+	repeated PriceLevel bids = 2; // Bid levels (highest to lowest)
+	repeated PriceLevel asks = 3; // Ask levels (lowest to highest)
+}
+
+// Requests current market data for a symbol
+message MarketDataRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1; // Trading symbol (e.g., "BTC-USD")
+}
+
+// Returns current market data including prices and volume
+message MarketDataResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1;                              // Trading symbol
+	string best_bid_price = 2;                      // Best bid price
+	string best_ask_price = 3;                      // Best ask price
+	string last_traded_price = 4;                   // Last traded price
+	google.protobuf.Timestamp last_traded_time = 5; // Last trade timestamp
+	string prev_day_price = 6;                      // Previous day closing price (24h ago)
+	string volume_24h = 7;                          // 24-hour trading volume in base asset
+	string quote_volume_24h = 8;                    // 24-hour trading volume in quote asset
+}
+
+// Requests current market data for multiple symbols in one call
+message GetAllMarketDataRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated string symbols = 1; // Symbols to fetch; request must include at least one symbol
+}
+
+// Returns current market data for all requested symbols
+message GetAllMarketDataResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated MarketDataResponse markets = 1;
+}
+
+// Represents a single candlestick (OHLCV) data point
+message Candlestick {
+	string symbol = 1;                        // Trading symbol
+	string timeframe = 2;                     // Timeframe (e.g., "1m", "5m", "1h", "1d")
+	google.protobuf.Timestamp open_time = 3;  // Candle open time
+	google.protobuf.Timestamp close_time = 4; // Candle close time
+	string open_price = 5;                    // Opening price
+	string high_price = 6;                    // Highest price
+	string low_price = 7;                     // Lowest price
+	string close_price = 8;                   // Closing price
+	string volume = 9;                        // Base asset volume
+	string quote_volume = 10;                 // Quote asset volume
+	int32 trade_count = 11;                   // Number of trades
+}
+
+// Requests historical candlestick data for a symbol and timeframe
+message GetCandlesticksRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1;                        // Trading symbol (e.g., "BTC-USD")
+	string timeframe = 2;                     // Timeframe (e.g., "1m", "5m", "1h", "1d")
+	google.protobuf.Timestamp start_time = 3; // Start time (optional, defaults to 24h ago)
+	google.protobuf.Timestamp end_time = 4;   // End time (optional, defaults to now)
+	int32 limit = 5;                          // Maximum number of candles to return (optional, 0 = no limit)
+}
+
+// Returns historical candlestick data for a symbol and timeframe
+message GetCandlesticksResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1;                     // Trading symbol
+	string timeframe = 2;                  // Timeframe
+	repeated Candlestick candlesticks = 3; // List of candlesticks (newest first)
+}
+
+// TriggerBackfillRequest triggers historical candle backfill from Coinmetrics
+message TriggerBackfillRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	repeated string symbols = 1;                            // Optional: specific symbol to backfill (empty = all active markets)
+}
+
+// TriggerBackfillResponse returns the result of the backfill trigger
+message TriggerBackfillResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	string message = 1;                           // Human-readable status message
+	repeated string symbol_queue = 2;             // Number of symbols queued for backfill
+}

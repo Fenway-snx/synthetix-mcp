@@ -1,0 +1,9 @@
+// Proto definition for Synthetix V4-Offchain WebSocket Service
+// To compile:
+// protoc --go_out=. --go-grpc_out=. websocket.proto
+
+syntax = "proto3";
+
+package synthetix.v4_offchain.websocket;
+
+option go_package = "github.com/Synthetixio/v4-offchain/lib/message/grpc";

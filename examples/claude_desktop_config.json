@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "synthetix-offchain": {
+      "url": "http://localhost:8096/mcp"
+    }
+  }
+}

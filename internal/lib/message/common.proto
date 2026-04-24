@@ -1,0 +1,68 @@
+// Proto definition for Synthetix V4-Offchain Common
+// To compile:
+// protoc --go_out=. --go-grpc_out=. common.proto
+
+syntax = "proto3";
+
+package synthetix.v4_offchain.common;
+
+option go_package = "github.com/Synthetixio/v4-offchain/lib/message/grpc";
+
+// --- Enum Definitions ---
+
+// Defines the order side (buy or sell)
+enum Side {
+	BUY = 0;
+	SELL = 1;
+}
+
+// Defines the position side for hedge mode vs one-way mode
+enum PositionSide {
+	BOTH = 0;  // For One-way Mode
+	LONG = 1;  // For Hedge Mode
+	SHORT = 2; // For Hedge Mode
+}
+
+// Defines the supported order types (limit, market, stop, etc.)
+enum OrderType {
+	LIMIT = 0;
+	MARKET = 1;
+	STOP = 2;
+	STOP_MARKET = 3;
+	TAKE_PROFIT = 4;
+	TAKE_PROFIT_MARKET = 5;
+	TRAILING_STOP_MARKET = 6;
+	TWAP = 7;
+}
+
+// Defines the order lifetime policy
+enum TimeInForce {
+	GTC = 0; // Good Til Canceled
+	IOC = 1; // Immediate or Cancel
+	FOK = 2; // Fill or Kill
+	GTD = 3; // Good Til Date
+}
+
+// Always keep UNKNOWN as the first option.
+// Sort anything after UNKNOWN
+enum OrderStatus {
+	UNKNOWN = 0;
+	MODIFIED = 1;
+	ACCEPTED = 2;
+	CANCELLED = 3;
+	EXPIRED = 4; // Order expired (e.g., IOC, FOK not filled)
+	FILLED = 5;
+	PARTIALLY_FILLED = 6; // Market orders that get partially filled the rest just gets cancelled nothing is left on the order book
+	PENDING = 7;
+	REJECTED = 8; // No liquidity in the order book when a market order hits the matching service
+}
+
+// A composite order identifier, comprising the system-generated venue
+// identifier and the optional client order identifier
+//
+// NOTE: once all the CLOID work has been propagated throughout the
+// codebase, this will be renamed to `OrderId`
+message OrderId {
+	uint64 venue_id = 1;  // The internal, mandatory, system-generated identifier
+	string client_id = 2; // The (optional, because can be empty) client order identifier that will be always associated with the venue id
+}

@@ -1,0 +1,8 @@
+{
+  "name": "synthetix-offchain",
+  "transport": {
+    "type": "streamable_http",
+    "url": "http://localhost:8096/mcp",
+    "headers": {}
+  }
+}

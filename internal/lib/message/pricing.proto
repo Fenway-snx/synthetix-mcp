@@ -1,0 +1,46 @@
+// Proto definition for Synthetix V4-Offchain Pricing Service
+// To compile:
+// protoc --go_out=. --go-grpc_out=. pricing.proto
+
+syntax = "proto3";
+
+package synthetix.v4_offchain.pricing;
+
+option go_package = "github.com/Synthetixio/v4-offchain/lib/message/grpc";
+
+// MEXC Public Aggregated Book Ticker
+// From: https://github.com/mexcdevelop/websocket-proto/blob/main/PublicAggreBookTickerV3Api.proto
+message PublicAggreBookTickerV3Api {
+  string bid_price = 1;
+  string bid_quantity = 2;
+  string ask_price = 3;
+  string ask_quantity = 4;
+}
+
+// MEXC WebSocket wrapper message - all messages are wrapped in this
+// From: https://github.com/mexcdevelop/websocket-proto
+message PushDataV3ApiWrapper {
+  // Channel name (e.g., "spot@public.aggre.bookTicker.v3.api.pb@100ms@BTCUSDT")
+  string channel = 1;
+
+  // Body contains the actual data - using oneof for different message types
+  oneof body {
+    PublicAggreBookTickerV3Api publicAggreBookTicker = 315;
+    // Add other message types here as needed:
+    // PublicDealsV3Api publicDeals = 301;
+    // PublicBookTickerV3Api publicBookTicker = 305;
+    // etc.
+  }
+
+  // Trading pair symbol
+  optional string symbol = 3;
+
+  // Trading pair ID
+  optional string symbolId = 4;
+
+  // Message creation time
+  optional int64 createTime = 5;
+
+  // Message send time
+  optional int64 sendTime = 6;
+}

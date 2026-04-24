@@ -1,0 +1,462 @@
+// Proto definition for Synthetix V4-Offchain Market Configuration Service
+// To compile:
+// protoc --go_out=. --go-grpc_out=. marketconfig.proto
+
+syntax = "proto3";
+
+package synthetix.v4_offchain.marketconfig;
+
+option go_package = "github.com/Synthetixio/v4-offchain/lib/message/grpc";
+
+import "google/protobuf/timestamp.proto";
+
+// Provides market configuration and pricing data
+service MarketConfigService {
+	// Get all latest market prices
+	rpc GetAllMarketPrices(GetAllMarketPricesRequest) returns (GetAllMarketPricesResponse);
+
+	// Get all markets with full configuration
+	rpc GetAllMarkets(GetAllMarketsRequest) returns (GetAllMarketsResponse);
+
+	// Get a specific market by symbol
+	rpc GetMarket(GetMarketRequest) returns (GetMarketResponse);
+
+	// Get global funding settings
+	rpc GetFundingSettings(GetFundingSettingsRequest) returns (GetFundingSettingsResponse);
+
+	// Get exchange configurations for aggregate pricing
+	rpc GetExchangeConfigs(GetExchangeConfigsRequest) returns (GetExchangeConfigsResponse);
+
+	// Admin: Update market status (open/close, freeze/unfreeze)
+	rpc UpdateMarketStatus(UpdateMarketStatusRequest) returns (UpdateMarketStatusResponse);
+
+	// Admin: Create a new market
+	rpc CreateMarket(CreateMarketRequest) returns (CreateMarketResponse);
+
+	// Get all SLP exposure limits per market
+	rpc GetAllSLPExposureLimits(GetAllSLPExposureLimitsRequest) returns (GetAllSLPExposureLimitsResponse);
+
+	// Get all collateral configurations with haircut tiers
+	rpc GetCollateralConfigs(GetCollateralConfigsRequest) returns (GetCollateralConfigsResponse);
+
+	// Get collateral pricing configurations used by the pricing service
+	rpc GetCollateralPricingConfigs(GetCollateralPricingConfigsRequest) returns (GetCollateralPricingConfigsResponse);
+}
+
+// Represents the latest prices for a trading symbol
+message MarketPrice {
+	string symbol = 1;
+	string mark_price = 2; // Using string to preserve decimal precision
+	string last_price = 3;
+	string index_price = 4;
+	google.protobuf.Timestamp updated_at = 5; // Unix timestamp in milliseconds
+}
+
+// Request message for GetAllMarketPrices
+message GetAllMarketPricesRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	// Empty request, no parameters needed
+}
+
+// Response message for GetAllMarketPrices
+message GetAllMarketPricesResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated MarketPrice prices = 1;
+}
+
+// Represents complete market configuration
+message Market {
+	uint64 id = 1;
+	string symbol = 2;
+	string description = 3;
+	string base_asset = 4;
+	string quote_asset = 5;
+	string settle_asset = 6;
+	bool is_open = 7;
+	uint32 default_leverage = 8;
+	int64 price_exponent = 9;
+	int64 quantity_exponent = 10;
+	string contract_size = 11;
+	string min_trade_amount = 12;
+	string tick_size = 13;
+	string min_notional_value = 14;
+	string limit_order_price_cap_ratio = 15;
+	string limit_order_price_floor_ratio = 16;
+	string max_market_order_amount = 17;
+	string max_limit_order_amount = 18;
+	string funding_rate_impact_price = 19;
+	string funding_rate_cap = 20;
+	string funding_rate_floor = 21;
+	string liquidation_clearance_fee = 22;
+	string market_order_price_cap_ratio = 23;
+	string market_order_price_floor_ratio = 24;
+	string binance_futures_symbol = 25; // e.g., "BTCUSDT"
+	string coinmetrics_symbol = 26;
+	repeated MaintenanceMarginTier maintenance_margin_tiers = 27;
+	string impact_notional_usd = 28;
+	string pyth_symbol = 29;
+	string bybit_futures_symbol = 30; // e.g., "BTCUSDT"
+	bool is_pre_token = 31;           // Indicates perp-only/pre-launch token (no spot market)
+	// Exchange-specific futures/perp symbols for aggregate mark price feeds
+	string okx_futures_symbol = 32;    // e.g., "BTC-USDT-SWAP"
+	string kucoin_futures_symbol = 33; // e.g., "XBTUSDTM"
+	string gateio_futures_symbol = 34; // e.g., "BTC_USDT"
+	string mexc_futures_symbol = 35;   // e.g., "BTC_USDT"
+	string hyperliquid_symbol = 36;    // e.g., "BTC" (Hyperliquid only has perps)
+	// Exchange-specific spot symbols for aggregate index price feeds
+	string binance_spot_symbol = 37; // e.g., "BTCUSDT"
+	string okx_spot_symbol = 38;     // e.g., "BTC-USDT"
+	string bybit_spot_symbol = 39;   // e.g., "BTCUSDT"
+	string kucoin_spot_symbol = 40;  // e.g., "BTC-USDT"
+	string gateio_spot_symbol = 41;  // e.g., "BTC_USDT"
+	string mexc_spot_symbol = 42;    // e.g., "BTCUSDT"
+	// Price multipliers for markets with non-standard denominations (e.g., 1000PEPE = 1000 PEPE)
+	double okx_futures_price_multiplier = 43;
+	double kucoin_futures_price_multiplier = 44;
+	double gateio_futures_price_multiplier = 45;
+	double mexc_futures_price_multiplier = 46;
+	double binance_spot_price_multiplier = 47;
+	double okx_spot_price_multiplier = 48;
+	double bybit_spot_price_multiplier = 49;
+	double kucoin_spot_price_multiplier = 50;
+	double gateio_spot_price_multiplier = 51;
+	double mexc_spot_price_multiplier = 52;
+	double coinmetrics_price_multiplier = 53;
+	// OI Cap fields for per-market open interest limits
+	string oi_notional_cap = 54;    // Max notional OI in USD (0 = no cap)
+	string oi_size_cap = 55;        // Max quantity OI in contracts (0 = no cap)
+	string oi_check_threshold = 56; // Threshold ratio to start checking (e.g., 0.80 = 80%)
+}
+
+// Represents a maintenance margin tier for a market
+message MaintenanceMarginTier {
+	uint64 id = 1;
+	uint64 market_id = 2;
+	string min_position_size = 3;
+	string max_position_size = 4; // Optional, empty string if null
+	uint32 max_leverage = 5;
+	string maintenance_margin_ratio = 6;
+	string maintenance_deduction_value = 7;
+	string initial_margin_ratio = 8; // Initial margin requirement ratio
+}
+
+// Request message for GetAllMarkets
+message GetAllMarketsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	// Optional: filter for active markets only
+	bool active_only = 1;
+}
+
+// Response message for GetAllMarkets
+message GetAllMarketsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated Market markets = 1;
+}
+
+// Request message for GetMarket
+message GetMarketRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1;
+}
+
+// Response message for GetMarket
+message GetMarketResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	Market market = 1;
+}
+
+// Represents global funding configuration
+message FundingSettings {
+	uint64 id = 1;
+	string base_interest_rate_per_8_hours = 2; // Using string to preserve decimal precision
+	int32 target_orderbook_depth = 3;
+}
+
+// Represents configuration for a futures (perp/mark aggregate) external exchange
+message FuturesExchangeConfig {
+	string key = 1;                            // Exchange identifier (e.g., "binance", "okx")
+	string name = 2;                           // Display name (e.g., "Binance", "OKX")
+	bool enabled = 3;                          // Whether this exchange is enabled
+	int32 aggregate_weight = 4;                // Weight for aggregate price calculation
+	string rest_url = 5;                       // REST API base URL
+	string websocket_url = 6;                  // WebSocket URL
+	string ticker_endpoint = 7;                // Ticker endpoint path
+	string info_endpoint = 8;                  // Info endpoint path (for Hyperliquid)
+	string orderbook_endpoint = 9;             // Orderbook endpoint path
+	string coinmetrics_prefix = 10;            // Coinmetrics market ID prefix (e.g., "binance")
+	string coinmetrics_suffix = 11;            // Coinmetrics market ID suffix (e.g., "future")
+	string symbol_pattern = 12;                // Symbol pattern (e.g., "{COIN}USDT")
+	map<string, string> symbol_overrides = 13; // Symbol overrides (e.g., BTC -> XBTUSDTM for Kucoin)
+	string source = 14;                        // Source type (e.g., "internal_orderbook" for Synthetix)
+	string api_key_env = 15;                   // Environment variable name for API key
+}
+
+// Represents configuration for aggregate price calculation (futures/mark)
+message AggregatePriceConfig {
+	int32 poll_interval_ms = 1;             // Polling interval in milliseconds
+	int32 min_exchanges_required = 2;       // Minimum number of exchanges required
+	int32 price_staleness_threshold_ms = 3; // Price staleness threshold in milliseconds
+}
+
+// Represents configuration for a spot exchange (used for aggregate index)
+message SpotExchangeConfig {
+	string key = 1;                   // Exchange identifier (e.g., "binance", "okx")
+	string name = 2;                  // Display name (e.g., "Binance", "OKX")
+	bool enabled = 3;                 // Whether this exchange is enabled
+	int32 aggregate_index_weight = 4; // Weight for aggregate index price calculation
+	string websocket_url = 5;         // WebSocket URL for spot market
+	string coinmetrics_prefix = 6;    // Coinmetrics market ID prefix (e.g., "binance")
+	string coinmetrics_suffix = 7;    // Coinmetrics market ID suffix (e.g., "spot")
+}
+
+// Represents configuration for aggregate index price calculation
+message AggregateIndexConfig {
+	int32 min_exchanges_required = 1;       // Minimum number of exchanges required
+	int32 price_staleness_threshold_ms = 2; // Price staleness threshold in milliseconds
+}
+
+// Request message for GetExchangeConfigs
+message GetExchangeConfigsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+}
+
+// Response message for GetExchangeConfigs
+message GetExchangeConfigsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	map<string, FuturesExchangeConfig> futures_exchanges = 1; // Map of exchange key to futures config
+	AggregatePriceConfig aggregate_config = 2;                // Aggregate mark price configuration
+	map<string, SpotExchangeConfig> spot_exchanges = 3;       // Map of exchange key to spot config
+	AggregateIndexConfig aggregate_index_config = 4;          // Aggregate index price configuration
+}
+
+// Request message for GetFundingSettingsRequest
+message GetFundingSettingsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+}
+
+// Response message for GetFundingSettings
+message GetFundingSettingsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	FundingSettings funding_settings = 1;
+}
+
+// Request message for UpdateMarketStatus
+message UpdateMarketStatusRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	string symbol = 1; // Market symbol
+	bool freeze = 2;   // true to freeze market (close), false to unfreeze market (open)
+}
+
+// Response message for UpdateMarketStatus
+message UpdateMarketStatusResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	Market market = 1;   // Updated market with new is_open status
+	string error = 2;    // Error message if operation failed, empty string if successful
+}
+
+// CreateMarketTier represents a maintenance margin tier for CreateMarket input
+message CreateMarketTier {
+	string min_position_size = 1;     // Minimum position size for this tier (in contracts, typically "0" for first tier)
+	string max_position_size = 2;     // Maximum position size for this tier (in contracts, empty string if null/unlimited)
+	int64 max_leverage = 3;           // Maximum leverage allowed for this tier
+}
+
+// CreateMarketStructure represents an input market structure
+message CreateMarketStructure {
+	string symbol = 1;                              // Required: Unique market identifier (e.g., "BTC-USDT")
+	string description = 2;                         // Required: Human-readable name (e.g., "Bitcoin")
+	string base_asset = 3;                          // Required: Base asset ticker (e.g., "BTC")
+	string quote_asset = 4;                         // Required: Quote asset ticker (e.g., "USDT")
+	string settle_asset = 5;                        // Required: Settlement asset ticker (e.g., "USDT")
+	bool is_open = 6;                               // Required: Whether market is open for trading
+	int64 price_exponent = 7;                       // Required: Price precision exponent
+	int64 quantity_exponent = 8;                    // Required: Quantity precision exponent
+	string contract_size = 9;                      	// Required: Contract size (can be > 1, e.g., "1000" for 1000PEPE)
+	string min_trade_amount = 10;                   // Required: Minimum trade amount (string)
+	string tick_size = 11;                          // Required: Minimum price increment (string)
+	string max_market_order_amount = 12;            // Required: Max market order size (string)
+	string max_limit_order_amount = 13;             // Required: Max limit order size (string)
+
+	// Exchange Symbols (Futures) - Optional
+	string binance_futures_symbol = 14;             // Optional: Binance futures symbol (e.g., "BTCUSDT")
+	string bybit_futures_symbol = 15;               // Optional: Bybit futures symbol (e.g., "BTCUSDT")
+	string okx_futures_symbol = 16;                 // Optional: OKX futures symbol (e.g., "BTC-USDT-SWAP")
+	string kucoin_futures_symbol = 17;              // Optional: Kucoin futures symbol (e.g., "XBTUSDTM")
+	string gateio_futures_symbol = 18;              // Optional: Gate.io futures symbol (e.g., "BTC_USDT")
+	string mexc_futures_symbol = 19;                 // Optional: MEXC futures symbol (e.g., "BTC_USDT")
+	string hyperliquid_symbol = 20;                 // Optional: Hyperliquid symbol (e.g., "BTC")
+
+	// Exchange Symbols (Spot) - Optional
+	string binance_spot_symbol = 21;                // Optional: Binance spot symbol (e.g., "BTCUSDT")
+	string okx_spot_symbol = 22;                    // Optional: OKX spot symbol (e.g., "BTC-USDT")
+	string bybit_spot_symbol = 23;                  // Optional: Bybit spot symbol (e.g., "BTCUSDT")
+	string kucoin_spot_symbol = 24;                 // Optional: Kucoin spot symbol (e.g., "BTC-USDT")
+	string gateio_spot_symbol = 25;                 // Optional: Gate.io spot symbol (e.g., "BTC_USDT")
+	string mexc_spot_symbol = 26;                   // Optional: MEXC spot symbol (e.g., "BTCUSDT")
+
+	// Price Data Sources - Optional
+	string coinmetrics_symbol = 27;                 // Optional: Coinmetrics symbol (e.g., "btc")
+	string pyth_symbol = 28;                        // Optional: Pyth Network symbol (e.g., "Crypto.BTC/USD")
+
+	// Price Multipliers (for non-standard denominations, e.g., 1000PEPE = 1000 PEPE) - Optional
+	double okx_futures_price_multiplier = 29;       // Optional: OKX futures price multiplier
+	double kucoin_futures_price_multiplier = 30;    // Optional: Kucoin futures price multiplier
+	double gateio_futures_price_multiplier = 31;    // Optional: Gate.io futures price multiplier
+	double mexc_futures_price_multiplier = 32;      // Optional: MEXC futures price multiplier
+	double binance_spot_price_multiplier = 33;      // Optional: Binance spot price multiplier
+	double okx_spot_price_multiplier = 34;          // Optional: OKX spot price multiplier
+	double bybit_spot_price_multiplier = 35;        // Optional: Bybit spot price multiplier
+	double kucoin_spot_price_multiplier = 36;        // Optional: Kucoin spot price multiplier
+	double gateio_spot_price_multiplier = 37;       // Optional: Gate.io spot price multiplier
+	double mexc_spot_price_multiplier = 38;         // Optional: MEXC spot price multiplier
+	double coinmetrics_price_multiplier = 39;       // Optional: Coinmetrics price multiplier
+
+	reserved 40; // was trading_rules_template
+
+	// Open Interest Caps - Optional
+	string oi_notional_cap = 41;                    // Optional: Max notional OI in USD (0 = no cap)
+	string oi_size_cap = 42;                        // Optional: Max quantity OI in contracts (0 = no cap)
+
+	// Trading Rules - Required (previously resolved from templates)
+	int64 default_leverage = 43;                    // Required: Default leverage for the market
+	string limit_order_price_cap_ratio = 44;        // Required: Max price deviation for limit orders (ratio, e.g., "0.05" = 5%)
+	string limit_order_price_floor_ratio = 45;      // Required: Min price deviation for limit orders (ratio, e.g., "0.05" = 5%)
+	string market_order_price_cap_ratio = 46;       // Required: Max price deviation for market orders (ratio, e.g., "0.05" = 5%)
+	string market_order_price_floor_ratio = 47;     // Required: Min price deviation for market orders (ratio, e.g., "0.05" = 5%)
+	string funding_rate_impact_price = 48;          // Required: Price threshold for funding rate impact calculation
+	string funding_rate_cap = 49;                   // Required: Maximum funding rate (decimal, e.g., "0.02" = 2%)
+	string funding_rate_floor = 50;                 // Required: Minimum funding rate (decimal, e.g., "-0.02" = -2%)
+	string liquidation_clearance_fee = 51;          // Required: Fee charged on liquidation (decimal, e.g., "0.005" = 0.5%)
+	string impact_notional_usd = 52;                // Required: Notional value threshold for price impact (USD)
+	string oi_check_threshold = 53;                 // Required: Threshold ratio to start checking OI caps (e.g., "0.80" = 80%)
+	repeated CreateMarketTier maintenance_margin_tiers = 54; // Required: Maintenance margin tiers
+
+	// Optional flags and limits (align with REST / postgrestypes.Market)
+	bool is_close_only = 55;                        // Optional: close-only mode (default false)
+	bool is_collateral_only = 56;                   // Optional: collateral-only mode (default false)
+	bool is_pre_token = 57;                         // Optional: pre-token market (default false)
+	string min_notional_value = 58;                 // Optional: min notional per order; empty or "0" means none
+}
+
+// Request message for CreateMarket
+message CreateMarketRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	CreateMarketStructure market = 1;  // Market configuration to create
+}
+
+// Response message for CreateMarket
+message CreateMarketResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	Market market = 1;   // Created market with ID and calculated fields
+	string error = 2;    // Error message if operation failed, empty string if successful
+	string market_name = 3; // Trading symbol (e.g. BTC-USDT); duplicated for convenience; empty when market is unset
+}
+
+// SLPExposureLimit represents per-market SLP exposure limits
+message SLPExposureLimit {
+	string symbol = 1;               // Market symbol
+	string max_exposure_lots = 2;    // Max position size in lots
+	string max_exposure_notional = 3; // Max notional exposure in USD
+	string max_exposure_percent = 4;  // Max exposure as percent of SLP account value
+}
+
+// Request message for GetAllSLPExposureLimits
+message GetAllSLPExposureLimitsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+}
+
+// Response message for GetAllSLPExposureLimits
+message GetAllSLPExposureLimitsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+	repeated SLPExposureLimit limits = 1;
+}
+
+
+// Request message for GetCollateralConfigs
+message GetCollateralConfigsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+}
+
+// Response message for GetCollateralConfigs
+message GetCollateralConfigsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated CollateralConfig collaterals = 1;
+}
+
+// Request message for GetCollateralPricingConfigs
+message GetCollateralPricingConfigsRequest {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+}
+
+// Response message for GetCollateralPricingConfigs
+message GetCollateralPricingConfigsResponse {
+	int64 timestamp_ms = 101;
+	int64 timestamp_us = 102;
+
+	repeated CollateralPricingConfig configs = 1;
+}
+
+// Represents a collateral configuration
+message CollateralConfig {
+	string collateral = 1;
+	string market = 2;
+	string deposit_cap = 3;
+	string ltv = 4;
+	string lltv = 5;
+	repeated CollateralHaircutTierConfig tiers = 6;
+	string withdraw_fee = 7;
+	int64 quantity_precision = 8;
+}
+
+// Represents pricing configuration for a collateral asset.
+// Field `status` uses lowercase tokens defined in repo: `lib/core/collateral_pricing_status.go`
+// (`active`, `disabled`). The database column is varchar; new values can be added there first,
+// then consumers treat unknown tokens as inactive unless explicitly handled.
+message CollateralPricingConfig {
+	string collateral = 1;
+	string coinmetrics_symbol = 2;
+	string status = 3;
+	int32 price_staleness_threshold_ms = 4;
+	string price_conversion_pair = 5;
+}
+
+// Represents a single haircut tier for a collateral
+message CollateralHaircutTierConfig {
+	uint64 id = 1;
+	string name = 2;
+	string min_amount = 3;
+	string max_amount = 4;
+	string value_ratio = 5;
+	string haircut = 6;
+	string value_addition = 7;
+	int64 status = 8;
+}

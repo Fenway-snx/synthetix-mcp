@@ -1,0 +1,25 @@
+# Build artefacts
+*.test
+*.out
+*.exe
+*.prof
+*.cov
+/server
+/synthetix-mcp
+
+# Editor / OS detritus
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local environment files
+.env
+config.env
+.env.*
+!.env.example
+!config.env.example
+
+# Module / vendor scratch
+/vendor/

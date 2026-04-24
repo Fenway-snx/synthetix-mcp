@@ -1,0 +1,296 @@
+// Proto definition for Synthetix V4-Offchain Trading Service
+// To compile:
+// protoc --go_out=. --go-grpc_out=. trading.proto
+
+syntax = "proto3";
+
+package synthetix.v4_offchain.trading;
+
+option go_package = "github.com/Synthetixio/v4-offchain/lib/message/grpc";
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+// --- Service Definition ---
+
+// Provides an interface for interacting with offchain trading endpoints
+service TradingService {
+	rpc CancelAllOrders(CancelAllOrdersRequest) returns (CancelAllOrdersResponse);
+	rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+	rpc CancelOrderByCloid(CancelOrderByCloidRequest) returns (CancelOrderResponse);
+	rpc ModifyOrder(ModifyOrderRequest) returns (ModifyOrderResponse);
+	rpc ModifyOrderByCloid(ModifyOrderByCloidRequest) returns (ModifyOrderResponse);
+	rpc PlaceBatchOrder(PlaceOrderRequest) returns (PlaceOrderResponse);
+	rpc PlaceCompoundOrder(PlaceOrderRequest) returns (PlaceOrderResponse);
+	rpc PlacePositionTPAndSl(PlaceOrderRequest) returns (PlaceOrderResponse);
+	rpc PlaceTWAPOrder(PlaceOrderRequest) returns (PlaceOrderResponse);
+	rpc ScheduleCancel(ScheduleCancelRequest) returns (ScheduleCancelResponse);
+	rpc WithdrawCollateral(WithdrawCollateralRequest) returns (WithdrawCollateralResponse);
+	rpc VoluntaryAutoExchange(VoluntaryAutoExchangeRequest) returns (VoluntaryAutoExchangeResponse);
+	rpc GetWithdrawableAmounts(GetWithdrawableAmountsRequest) returns (GetWithdrawableAmountsResponse);
+}
+
+// Requests placement of one or more orders for a subaccount
+message PlaceOrderRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1;
+	string request_id = 2;
+	repeated PlaceOrderRequestItem orders = 3;
+	string source = 4;
+}
+
+// Represents a single order within a place order request
+message PlaceOrderRequestItem {
+	string symbol = 1;
+	common.Side side = 2;
+	common.OrderType type = 3;
+	optional common.TimeInForce time_in_force = 4;
+	string quantity = 5;
+	bool reduce_only = 6;
+	optional string price = 7;
+	optional string new_client_order_id = 8;
+	optional string trigger_price = 9;
+	bool post_only = 10;
+	bool close_position = 11;
+	string trigger_price_type = 12;
+	optional TWAPOrderRequest twap_params = 13;
+	optional google.protobuf.Timestamp expires_at = 14;
+}
+
+// TWAP order parameters
+message TWAPOrderRequest {
+	int64 duration_seconds = 1;
+	int64 interval_seconds = 2;
+}
+
+// Returns the results of a place order request
+message PlaceOrderResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	string request_id = 1;
+	repeated PlaceOrderResponseItem orders = 2;
+}
+
+// Represents a single order result within a place order response
+message PlaceOrderResponseItem {
+	common.OrderId order_id = 1;
+	string cum_qty = 2;
+	string avg_price = 3;
+	string orig_qty = 4;
+	common.OrderStatus status = 5;
+	string symbol = 6;
+	bool is_success = 7;
+	string message = 8;
+	optional string error_code = 9; // Machine-readable error code for programmatic handling
+	optional google.protobuf.Timestamp expires_at = 10;
+}
+
+// Requests cancellation of one or more orders by venue order ID
+message CancelOrderRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1;
+	repeated uint64 venue_order_ids = 2;
+	string request_id = 3;
+}
+
+// Returns the results of a cancel order request
+message CancelOrderResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	string request_id = 1;
+	repeated CancelOrderResponseItem orders = 2;
+}
+
+// Represents the result of a single order cancellation
+message CancelOrderResponseItem {
+	common.OrderId order_id = 1;
+	string error_message = 2;
+	string symbol = 3;
+	optional string error_code = 4; // Machine-readable error code for programmatic handling
+}
+
+// Requests cancellation of all orders, optionally filtered by symbols
+message CancelAllOrdersRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1;
+	repeated string symbols = 2;
+	string request_id = 3;
+}
+
+// Returns the results of a cancel-all-orders request
+message CancelAllOrdersResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	string request_id = 1;
+	repeated CancelOrderResponseItem orders = 2;
+}
+
+// Sets or clears a dead-man-switch cancellation deadline for a subaccount.
+message ScheduleCancelRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1;
+	string request_id = 2;
+	int64 timeout_seconds = 3;
+}
+
+// Returns the active dead-man-switch cancellation deadline for a subaccount.
+message ScheduleCancelResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	string request_id = 1;
+	bool is_active = 2;
+	int64 timeout_seconds = 3;
+	google.protobuf.Timestamp trigger_time = 4;
+	string message = 6;
+}
+
+// Requests cancellation of one or more orders by client order ID
+message CancelOrderByCloidRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1;
+	repeated string client_order_ids = 2;
+	string request_id = 3;
+}
+
+// Requests modification of an existing order's quantity, price, or trigger price
+message ModifyOrderRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1;
+	uint64 venue_order_id = 2;
+	optional string quantity = 3;
+	optional string price = 4;
+	string request_id = 5;
+	optional string trigger_price = 6;
+}
+
+// Returns the result of an order modification request
+message ModifyOrderResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	common.OrderId order_id = 1;
+	string request_id = 2;
+	optional string quantity = 3;
+	optional string price = 4;
+	optional string trigger_price = 5;
+	common.OrderStatus status = 6;
+	optional string cumulative_fill_qty = 7;
+	optional string average_price = 8;
+	optional string error_code = 9;    // Machine-readable error code for programmatic handling
+	optional string error_message = 10; // Human-readable error message
+}
+
+// Requests modification of an existing order by client order ID
+message ModifyOrderByCloidRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1;
+	string client_order_id = 2;
+	optional string quantity = 3;
+	optional string price = 4;
+	string request_id = 5;
+	optional string trigger_price = 6;
+}
+
+// Requests a collateral withdrawal to a destination wallet
+message WithdrawCollateralRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1; // Required: subaccount ID
+	string symbol = 2;         // Required: token symbol (e.g., "USDT", "WETH")
+	string amount = 3;         // Required: amount to withdraw
+	string destination = 4;    // Required: destination wallet address
+	string request_id = 5;     // Required: request ID from API for correlation
+	string wallet_address = 6; // Required: authenticated user's wallet address
+}
+
+// Returns the result of a collateral withdrawal request
+message WithdrawCollateralResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	string request_id = 1;  // Unique withdrawal request ID
+	string symbol = 2;      // Token symbol
+	string amount = 3;      // Amount withdrawn
+	string destination = 4; // Destination address
+}
+
+// Requests a voluntary exchange of collateral to USDT
+message VoluntaryAutoExchangeRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1;     // Required: subaccount ID
+	string target_usdt_amount = 2; // Required: target USDT amount to reach
+	string source_asset = 3;       // Required: source asset to convert (e.g., "WETH")
+}
+
+// Represents a single collateral symbol and quantity
+message CollateralItem {
+	string symbol = 1;   // Collateral symbol (e.g., "WETH", "USDT")
+	string quantity = 2; // Quantity of the collateral
+}
+
+// Returns the result of a voluntary auto-exchange
+message VoluntaryAutoExchangeResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	int64 sub_account_id = 1;              // Subaccount ID
+	string source_asset = 2;                // Source asset that was converted
+	string source_amount_taken = 3;         // Amount of source asset taken
+	string target_asset = 4;                // Target asset (always "USDT")
+	string target_amount = 5;               // Target USDT amount received
+	string index_price = 6;                 // Index price used for conversion
+	string effective_haircut = 7;           // Effective haircut/fee applied
+	repeated CollateralItem collateral = 8; // Updated collateral balances
+}
+
+// Queries per-asset withdrawable amounts for a subaccount.
+// Read-only query — no state mutations occur.
+// Unknown symbols silently return zero values.
+message GetWithdrawableAmountsRequest {
+	reserved 101, 102, 104;
+	google.protobuf.Timestamp tm_requested_at = 103;
+
+	int64 sub_account_id = 1;   // Required: subaccount ID
+	repeated string symbols = 2; // Required: collateral symbols to query (e.g., ["USDT", "WETH"])
+}
+
+// Per-asset withdrawable amount information
+message WithdrawableAmountItem {
+	string symbol = 1;              // Collateral symbol
+	string withdrawable_amount = 2; // Max withdrawable in asset terms (for USDT: may exceed quantity, creating debt)
+	string quantity = 3;            // Current held balance (compare with withdrawable_amount to detect debt creation)
+	string pending_withdraw = 4;    // Amount currently pending withdrawal
+	string withdraw_fee = 5;        // Withdrawal fee for this asset
+}
+
+// Returns per-asset withdrawable amounts.
+// Each item's withdrawable_amount is computed independently — they are NOT simultaneously
+// achievable. Withdrawing the max of one asset will reduce the budget available for others.
+message GetWithdrawableAmountsResponse {
+	reserved 101, 102, 103;
+	google.protobuf.Timestamp tm_responded_at = 104;
+
+	repeated WithdrawableAmountItem items = 1;
+	string total_withdrawable_usdt = 2; // USDT-denominated withdrawable budget from MarginSnapshot
+}
