@@ -40,9 +40,13 @@ func guardrailPreviewErrors(
 	if err != nil {
 		return []string{err.Error()}
 	}
-	snapshot, err := snapshotManager.EnsureHydrated(ctx, sessionID, state.SubAccountID)
-	if err != nil {
-		return []string{fmt.Sprintf("risk snapshot hydration failed: %s", err.Error())}
+	var snapshot *risksnapshot.Snapshot
+	if resolved.HasMaxPositionQuantity() || resolved.HasMaxPositionNotional() {
+		var err error
+		snapshot, err = snapshotManager.EnsureHydrated(ctx, sessionID, state.SubAccountID)
+		if err != nil {
+			return []string{fmt.Sprintf("risk snapshot hydration failed: %s", err.Error())}
+		}
 	}
 	return guardrailOrderErrors(ctx, priceReader, resolved, snapshot, normalized)
 }
@@ -60,9 +64,13 @@ func enforcePlaceOrderGuardrails(
 		return err
 	}
 
-	snapshot, err := snapshotManager.EnsureHydrated(ctx, sessionID, state.SubAccountID)
-	if err != nil {
-		return guardrailError(fmt.Sprintf("risk snapshot hydration failed: %s", err.Error()))
+	var snapshot *risksnapshot.Snapshot
+	if resolved.HasMaxPositionQuantity() || resolved.HasMaxPositionNotional() {
+		var err error
+		snapshot, err = snapshotManager.EnsureHydrated(ctx, sessionID, state.SubAccountID)
+		if err != nil {
+			return guardrailError(fmt.Sprintf("risk snapshot hydration failed: %s", err.Error()))
+		}
 	}
 
 	errors := guardrailOrderErrors(ctx, priceReader, resolved, snapshot, normalized)
@@ -300,6 +308,9 @@ func enforceCancelAllGuardrails(
 		if !resolved.IsSymbolAllowed(input.Symbol) {
 			return guardrailError(fmt.Sprintf("symbol %s is not allowed for this session", input.Symbol))
 		}
+		return nil
+	}
+	if resolved.IsSymbolAllowed(guardrails.WildcardAll) {
 		return nil
 	}
 

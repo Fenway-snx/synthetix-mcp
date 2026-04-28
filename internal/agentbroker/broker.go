@@ -271,6 +271,9 @@ func New(opts Options) (*Broker, error) {
 		// step that bit Claude Code in the original transcript.
 		defaults.Preset = "standard"
 	}
+	if len(defaults.AllowedSymbols) == 0 {
+		defaults.AllowedSymbols = []string{"*"}
+	}
 	if len(defaults.AllowedOrderTypes) == 0 {
 		defaults.AllowedOrderTypes = []string{"LIMIT", "MARKET"}
 	}

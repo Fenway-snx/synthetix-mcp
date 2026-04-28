@@ -73,8 +73,8 @@ func Register(server *mcp.Server, brokerEnabled bool) {
 2. Call get_server_info to discover the environment, supported auth modes, and any disabled features.
 3. Call get_session to verify the session is authenticated for subaccount %s.
    - If not authenticated, call authenticate first.
-4. Call get_session and inspect agentGuardrails. Show the guardrails to the user in plain language, including allowed symbols, allowed order types, max order notional/quantity, max position notional/quantity, and whether writes are enabled. Ask the user to ACCEPT these guardrails or EDIT them before any order submission.
-   - If the user edits them, call set_guardrails with the revised values and then call get_session again to show the updated guardrails.
+4. Call get_session and inspect agentGuardrails. Show active or default guardrails in plain language, including allowed symbols, allowed order types, max order notional/quantity, max position notional/quantity, and whether writes are enabled. Guardrails are optional operator limits, not a prerequisite.
+   - If the operator asks to tighten limits, call set_guardrails with the revised values and then call get_session again to show the updated guardrails.
 5. Call get_account_summary to retrieve margin health, collateral balances, and fee tier.
    - Flag if available margin is below 10%% of account value.
 6. Call get_positions to check for open positions. Note any concentrated or high-leverage exposure.
@@ -209,9 +209,9 @@ Complete each check. Report PASS, WARN, or FAIL for each:
    - WARN if there are existing orders on the same side that could compound fills.
    - Note total pending order exposure.
 
-5. GUARDRAIL REVIEW: Call get_session and show the active agentGuardrails to the user.
+5. GUARDRAIL REVIEW: Call get_session and show the active or default guardrails to the user.
    - Include allowed symbols, allowed order types, max order notional/quantity, max position notional/quantity, and whether writes are enabled.
-   - Ask the user to ACCEPT these guardrails or EDIT them before proceeding. If the user edits them, call set_guardrails and then call get_session again to confirm the updated guardrails.
+   - Guardrails are optional operator limits. Fold this information into the one trade confirmation; if the user asks to edit limits, call set_guardrails and then call get_session again to confirm the updated guardrails.
 
 6. ORDER VALIDATION: Call preview_order with the order parameters.
    - PASS if canSubmit is true and no validation errors.
@@ -348,13 +348,13 @@ Goal: place %s %s qty=%s as your first trade.
    - Call get_account_summary. Verify available margin is strictly greater than the estimated initial margin for this order. (The first broker write also auto-authenticates the session against the self-hosted broker wallet, so this read is enough to bind the session.)
    - Call get_positions to note any existing exposure on %s.
 
-4. REVIEW GUARDRAILS WITH THE USER
+4. REVIEW GUARDRAILS
    - Call get_session and inspect agentGuardrails. If guardrails have not been materialized yet, show the broker default guardrails advertised by get_server_info / get_context and state that the first broker write will apply those defaults.
-   - Present allowed symbols, allowed order types, max order notional/quantity, max position notional/quantity, and whether writes are enabled.
-   - Ask the user to ACCEPT these guardrails or EDIT them before submitting any order. If they edit values, apply the revised guardrails with set_guardrails when the session is authenticated, or ask the operator to update SNXMCP_AGENT_BROKER_DEFAULT_* and restart before trading.
+   - Present allowed symbols, allowed order types, max order notional/quantity, max position notional/quantity, and whether writes are enabled as part of the single trade confirmation. Guardrails are optional operator limits, not a prerequisite.
+   - Ask for confirmation at most once for this trade. Combine order details, account capacity, and guardrails into that single prompt; do not ask separately to approve guardrails and then again to approve the order.
 
 5. SUBMIT THE ORDER
-   - Call place_order with {symbol="%s", side="%s", type="LIMIT" or "MARKET", quantity="%s", price="<your limit>" (omit for MARKET), timeInForce="GTC", clientOrderId="<random-0x-hex>"}.
+   - Call place_order with {symbol="%s", side="%s", type="LIMIT" or "MARKET", quantity="%s", price="<your limit>" (omit for MARKET), timeInForce="GTC"}. Only include clientOrderId if you can generate a valid 0x-prefixed 32-hex value.
    - The self-hosted broker validates against its default guardrail preset, signs the placeOrders action, and submits in one round trip.
 
 6. CHECK THE OUTCOME
@@ -409,11 +409,10 @@ Execute the steps below in order. Do NOT hand-craft EIP-712 payloads — always 
    - Call authenticate with message=<serialized typedData JSON> and signatureHex=<0x-prefixed 65-byte signature>.
    - Call get_session and confirm authMode="authenticated" and subAccountId="%s".
 
-3. SET A SAFETY NET
-   - Propose guardrails before setting them. At minimum include preset="standard", allowedSymbols=["%s"], allowed order types, max order notional/quantity, and max position notional/quantity.
-   - Show the proposed guardrails to the user and ask them to ACCEPT or EDIT before any order submission.
-   - If accepted, call set_guardrails with the agreed values. If edited, call set_guardrails with the revised values.
-   - Call get_session after set_guardrails and show the active agentGuardrails back to the user for final confirmation.
+3. OPTIONAL SAFETY NET
+   - Guardrails are optional operator limits, not a prerequisite. If the operator wants tighter limits, propose preset="standard", allowedSymbols=["%s"], allowed order types, max order notional/quantity, and max position notional/quantity.
+   - If the operator asks to apply or edit limits, call set_guardrails with the agreed values and call get_session after set_guardrails to show the active agentGuardrails.
+   - Ask for confirmation at most once for the trade. Combine order details, account capacity, and any guardrails into that single prompt.
 
 4. INSPECT THE MARKET
    - Call get_market_summary with symbol="%s" to learn tickSize, minTradeAmount, best bid/ask, mark price, and funding.
@@ -426,7 +425,7 @@ Execute the steps below in order. Do NOT hand-craft EIP-712 payloads — always 
 
 6. PREVIEW + SIGN THE TRADE
    - Call preview_order with your proposed order parameters to validate shape (canSubmit, remaining limits, estimated fees). Fix any validation errors before signing.
-   - Call preview_trade_signature with action="placeOrders" and placeOrder={symbol:"%s", side:"%s", type:"LIMIT" (or "MARKET"), timeInForce:"GTC", quantity:"%s", price:"<your limit>" (omit for MARKET), reduceOnly:false, postOnly:false, clientOrderId:"<random-0x-hex>"}. The server returns a fresh nonce, expiresAfter, digest, and canonical typedData.
+   - Call preview_trade_signature with action="placeOrders" and placeOrder={symbol:"%s", side:"%s", type:"LIMIT" (or "MARKET"), timeInForce:"GTC", quantity:"%s", price:"<your limit>" (omit for MARKET), reduceOnly:false, postOnly:false}. Only include clientOrderId if you can generate a valid 0x-prefixed 32-hex value. The server returns a fresh nonce, expiresAfter, digest, and canonical typedData.
    - Sign the returned typedData locally (same signer as step 2).
    - Split the 65-byte signature into {r, s, v} where v is 27 or 28.
 

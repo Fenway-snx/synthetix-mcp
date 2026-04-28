@@ -87,6 +87,30 @@ func TestNewLoadsKeyFromFile(t *testing.T) {
 	}
 }
 
+func TestNewMaterializesGuardrailDefaults(t *testing.T) {
+	_, keyHex := newTestKey(t)
+	broker, err := New(Options{
+		DomainProvider:     fakeDomainProvider{},
+		SubaccountResolver: &fakeSubaccountResolver{},
+		PrivateKeyHex:      keyHex,
+		SubAccountID:       42,
+	})
+	if err != nil {
+		t.Fatalf("new broker: %v", err)
+	}
+
+	defaults := broker.GuardrailDefaults()
+	if defaults.Preset != "standard" {
+		t.Fatalf("expected standard preset, got %q", defaults.Preset)
+	}
+	if len(defaults.AllowedSymbols) != 1 || defaults.AllowedSymbols[0] != "*" {
+		t.Fatalf("expected wildcard symbol default, got %#v", defaults.AllowedSymbols)
+	}
+	if len(defaults.AllowedOrderTypes) != 2 || defaults.AllowedOrderTypes[0] != "LIMIT" || defaults.AllowedOrderTypes[1] != "MARKET" {
+		t.Fatalf("expected LIMIT/MARKET order type defaults, got %#v", defaults.AllowedOrderTypes)
+	}
+}
+
 func TestSignAuthMessageProducesVerifiableSignature(t *testing.T) {
 	key, keyHex := newTestKey(t)
 	broker, err := New(Options{

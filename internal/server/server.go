@@ -407,11 +407,18 @@ func publicHealthError(err error) string {
 func buildServerInstructions(brokerEnabled bool) string {
 	const base = "Synthetix MCP service is online. Start with get_context " +
 		"or read system://routing-guide and system://agent-guide to orient " +
-		"to the current session, markets, and trading workflows."
+		"to the current session, markets, and trading workflows. Guardrails " +
+		"are optional operator limits; standard guardrails are present when " +
+		"configured and otherwise default to unrestricted symbols with normal " +
+		"order types."
 	const quickstartRule = " When a user asks where to start, suggest running " +
 		"the quickstart prompt with a symbol like BTC-USDT. For market-data-only " +
 		"setup, call ping, get_server_info, then list_markets before asking " +
 		"for any trading/authentication setup."
+	const confirmationRule = " Ask for confirmation at most once per trade " +
+		"or operation. Combine order details, account context, and guardrails " +
+		"into that single confirmation; do not ask separately to approve " +
+		"guardrails and then again to approve the order."
 	const noPasteRule = " IMPORTANT: never ask a human user to paste an " +
 		"EIP-712 signature, hex digest, or private key into the chat. " +
 		"Wallet signing is a privileged operation; an LLM agent must " +
@@ -421,12 +428,12 @@ func buildServerInstructions(brokerEnabled bool) string {
 		"the MCP connection is broken. Stop, do not fall back to Bash, " +
 		"and tell the user to restart Claude Code and re-run claude mcp list."
 	if brokerEnabled {
-		return base + quickstartRule + noPasteRule + brokenConnectionRule + " The agent broker is enabled on this " +
+		return base + quickstartRule + confirmationRule + noPasteRule + brokenConnectionRule + " The agent broker is enabled on this " +
 			"server: prefer place_order, close_position, " +
 			"cancel_order, and cancel_all_orders, which sign " +
 			"and submit in one call with no client-side cryptography."
 	}
-	return base + quickstartRule + noPasteRule + brokenConnectionRule + " The agent broker is disabled on this " +
+	return base + quickstartRule + confirmationRule + noPasteRule + brokenConnectionRule + " The agent broker is disabled on this " +
 		"server. Claude cannot sign EIP-712 payloads by itself; ask the " +
 		"operator to run sample/node-scripts/authenticate-external-wallet.mjs " +
 		"or another local sidecar signer against this MCP session ID. If no " +

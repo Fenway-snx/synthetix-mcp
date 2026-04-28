@@ -10,25 +10,27 @@ import (
 )
 
 const (
-	DefaultAPIBaseURL                  = "https://papi.synthetix.io"
-	DefaultAPIHTTPTimeout              = 10 * time.Second
-	DefaultAPIMarketCacheTTL           = 30 * time.Second
-	DefaultAuthCacheMaxEntries         = snx_lib_auth.DefaultAuthCacheMaxEntries
-	DefaultEIP712ChainID               = 1
-	DefaultEIP712DomainName            = "Synthetix"
-	DefaultEIP712DomainVersion         = "1"
-	DefaultEnvironment                 = "development"
-	DefaultHTTPIdleTimeout             = 120 * time.Second
-	DefaultHTTPReadHeaderTimeout       = 10 * time.Second
-	DefaultLogLevel                    = "info"
-	DefaultMaxRequestBodyBytes   int64 = 1 << 20
-	DefaultMaxSubscriptions            = 25
-	DefaultRiskSnapshotMaxAge          = 3 * time.Minute
-	DefaultServerAddress               = "127.0.0.1:8096"
-	DefaultServerName                  = "synthetix-mcp"
-	DefaultServerVersion               = "0.1.0"
-	DefaultSessionTTL                  = 30 * time.Minute
-	DefaultShutdownTimeout             = 10 * time.Second
+	DefaultAPIBaseURL                     = "https://papi.synthetix.io"
+	DefaultAPIHTTPTimeout                 = 10 * time.Second
+	DefaultAPIMarketCacheTTL              = 30 * time.Second
+	DefaultAgentBrokerAllowedSymbol       = "*"
+	DefaultAgentBrokerPreset              = "standard"
+	DefaultAuthCacheMaxEntries            = snx_lib_auth.DefaultAuthCacheMaxEntries
+	DefaultEIP712ChainID                  = 1
+	DefaultEIP712DomainName               = "Synthetix"
+	DefaultEIP712DomainVersion            = "1"
+	DefaultEnvironment                    = "development"
+	DefaultHTTPIdleTimeout                = 120 * time.Second
+	DefaultHTTPReadHeaderTimeout          = 10 * time.Second
+	DefaultLogLevel                       = "info"
+	DefaultMaxRequestBodyBytes      int64 = 1 << 20
+	DefaultMaxSubscriptions               = 25
+	DefaultRiskSnapshotMaxAge             = 3 * time.Minute
+	DefaultServerAddress                  = "127.0.0.1:8096"
+	DefaultServerName                     = "synthetix-mcp"
+	DefaultServerVersion                  = "0.1.0"
+	DefaultSessionTTL                     = 30 * time.Minute
+	DefaultShutdownTimeout                = 10 * time.Second
 )
 
 // AgentBroker configures an optional, server-side EIP-712 signer. When
@@ -184,6 +186,15 @@ func Load() (*Config, error) {
 func applyDefaults(cfg *Config) {
 	if cfg.APIBaseURL == "" {
 		cfg.APIBaseURL = DefaultAPIBaseURL
+	}
+	if cfg.AgentBroker.DefaultPreset == "" {
+		cfg.AgentBroker.DefaultPreset = DefaultAgentBrokerPreset
+	}
+	if len(cfg.AgentBroker.DefaultAllowedSymbols) == 0 {
+		cfg.AgentBroker.DefaultAllowedSymbols = []string{DefaultAgentBrokerAllowedSymbol}
+	}
+	if len(cfg.AgentBroker.DefaultAllowedTypes) == 0 {
+		cfg.AgentBroker.DefaultAllowedTypes = []string{"LIMIT", "MARKET"}
 	}
 	if cfg.AuthCacheMaxEntries == 0 {
 		cfg.AuthCacheMaxEntries = DefaultAuthCacheMaxEntries

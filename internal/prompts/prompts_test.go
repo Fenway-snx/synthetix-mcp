@@ -89,7 +89,7 @@ func TestRegisterPromptsListAndRead(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected checklist text content, got %T", checklistPrompt.Messages[0].Content)
 	}
-	for _, want := range []string{"BUY", "ETH-USDT", "2.5", "2300", "77", "agentGuardrails", "ACCEPT", "EDIT"} {
+	for _, want := range []string{"BUY", "ETH-USDT", "2.5", "2300", "77", "guardrails", "one trade confirmation"} {
 		if !strings.Contains(checklistText.Text, want) {
 			t.Fatalf("expected checklist prompt to contain %q, got %q", want, checklistText.Text)
 		}
@@ -113,7 +113,7 @@ func TestRegisterPromptsListAndRead(t *testing.T) {
 	}
 	// Wallet-path quickstart must surface the local-signing tools so the
 	// agent renders a concrete script rather than a generic template.
-	for _, want := range []string{"SELL", "BTC-USDT", "0.01", "42", "preview_auth_message", "preview_trade_signature", "set_guardrails", "signed_place_order", "ACCEPT", "EDIT"} {
+	for _, want := range []string{"SELL", "BTC-USDT", "0.01", "42", "preview_auth_message", "preview_trade_signature", "set_guardrails", "signed_place_order", "at most once"} {
 		if !strings.Contains(quickstartText.Text, want) {
 			t.Fatalf("expected wallet-path quickstart prompt to contain %q, got %q", want, quickstartText.Text)
 		}
@@ -162,7 +162,7 @@ func TestQuickstartPromptBrokerEnabled(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected quickstart text content, got %T", prompt.Messages[0].Content)
 	}
-	for _, want := range []string{"BUY", "BTC-USDT", "0.01", "place_order", "close_position", "cancel_order", "guardrails", "ACCEPT", "EDIT"} {
+	for _, want := range []string{"BUY", "BTC-USDT", "0.01", "place_order", "close_position", "cancel_order", "guardrails", "at most once"} {
 		if !strings.Contains(text.Text, want) {
 			t.Fatalf("expected broker quickstart prompt to contain %q, got %q", want, text.Text)
 		}

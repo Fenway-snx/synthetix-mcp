@@ -43,7 +43,7 @@ type Resolved struct {
 var supportedOrderTypes = []string{"LIMIT", "MARKET", "STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET"}
 
 func Resolve(cfg *Config) (*Resolved, error) {
-	requestedPreset := normalizePreset("")
+	requestedPreset := PresetStandard
 	if cfg != nil {
 		requestedPreset = normalizePreset(cfg.Preset)
 	}
@@ -118,7 +118,7 @@ func normalizeOrderType(orderType string) string {
 func normalizePreset(preset string) string {
 	preset = strings.TrimSpace(strings.ToLower(preset))
 	if preset == "" {
-		return PresetReadOnly
+		return PresetStandard
 	}
 	return preset
 }
@@ -177,7 +177,7 @@ func resolveStandard(cfg *Config) (*Resolved, error) {
 
 	allowedSymbols := normalizeStrings(cfg.AllowedSymbols, normalizeSymbol)
 	if len(allowedSymbols) == 0 {
-		return nil, fmt.Errorf("standard preset requires at least one allowed symbol or '*'")
+		allowedSymbols = []string{WildcardAll}
 	}
 
 	allowedOrderTypes := normalizeStrings(cfg.AllowedOrderTypes, normalizeOrderType)
@@ -203,9 +203,6 @@ func resolveStandard(cfg *Config) (*Resolved, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !hasMaxOrderQuantity && !hasMaxOrderNotional {
-		return nil, fmt.Errorf("standard preset requires maxOrderQuantity or maxOrderNotional")
-	}
 
 	maxPositionQuantity, hasMaxPositionQuantity, err := parsePositiveDecimal(cfg.MaxPositionQuantity, "maxPositionQuantity")
 	if err != nil {
@@ -214,9 +211,6 @@ func resolveStandard(cfg *Config) (*Resolved, error) {
 	maxPositionNotional, hasMaxPositionNotional, err := parsePositiveDecimal(cfg.MaxPositionNotional, "maxPositionNotional")
 	if err != nil {
 		return nil, err
-	}
-	if !hasMaxPositionQuantity && !hasMaxPositionNotional {
-		return nil, fmt.Errorf("standard preset requires maxPositionQuantity or maxPositionNotional")
 	}
 
 	return &Resolved{

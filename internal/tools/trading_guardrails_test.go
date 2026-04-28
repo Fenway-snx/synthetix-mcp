@@ -30,6 +30,27 @@ func (f fakeGuardrailPriceReader) GetMarketPrices(context.Context) (map[string]t
 	return map[string]types.MarketPriceResponse(f), nil
 }
 
+func TestPlaceOrderGuardrailsWithoutCapsDoNotRequireSnapshot(t *testing.T) {
+	state := &session.State{
+		SubAccountID: 1,
+		AgentGuardrails: &guardrails.Config{
+			Preset:            guardrails.PresetStandard,
+			AllowedSymbols:    []string{"*"},
+			AllowedOrderTypes: []string{"LIMIT", "MARKET"},
+		},
+	}
+
+	err := enforcePlaceOrderGuardrails(context.Background(), "session", state, nil, nil, normalizedOrderOutput{
+		Symbol:   "BTC-USDT",
+		Side:     "BUY",
+		Type:     "MARKET",
+		Quantity: "0.001",
+	})
+	if err != nil {
+		t.Fatalf("expected unrestricted standard guardrails not to require snapshot hydration, got %v", err)
+	}
+}
+
 func TestGuardrailOrderErrorsEnforcesNotionalCaps(t *testing.T) {
 	ctx := context.Background()
 	manager := risksnapshot.NewManager(fakeGuardrailHydrationClient{

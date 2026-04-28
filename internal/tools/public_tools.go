@@ -12,9 +12,9 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/Fenway-snx/synthetix-mcp/internal/session"
 	"github.com/synthetixio/synthetix-go/restinfo"
 	"github.com/synthetixio/synthetix-go/types"
-	"github.com/Fenway-snx/synthetix-mcp/internal/session"
 )
 
 type pingOutput struct {
@@ -24,18 +24,18 @@ type pingOutput struct {
 }
 
 type serverInfoOutput struct {
-	Meta                   responseMeta            `json:"_meta"`
-	AgentBroker            serverInfoAgentBroker   `json:"agentBroker"`
-	AuthModes              []string                `json:"authModes"`
-	DisabledFeatures       []string                `json:"disabledFeatures"`
-	DocumentationResources []string                `json:"documentationResources"`
-	EnabledChannels        []string                `json:"enabledChannels"`
-	Environment            string                  `json:"environment"`
-	ServerName             string                  `json:"serverName"`
-	SupportsPublicMode     bool                    `json:"supportsPublicMode"`
-	SupportsReplay         bool                    `json:"supportsReplay"`
-	Transports             []string                `json:"transports"`
-	Version                string                  `json:"version"`
+	Meta                   responseMeta          `json:"_meta"`
+	AgentBroker            serverInfoAgentBroker `json:"agentBroker"`
+	AuthModes              []string              `json:"authModes"`
+	DisabledFeatures       []string              `json:"disabledFeatures"`
+	DocumentationResources []string              `json:"documentationResources"`
+	EnabledChannels        []string              `json:"enabledChannels"`
+	Environment            string                `json:"environment"`
+	ServerName             string                `json:"serverName"`
+	SupportsPublicMode     bool                  `json:"supportsPublicMode"`
+	SupportsReplay         bool                  `json:"supportsReplay"`
+	Transports             []string              `json:"transports"`
+	Version                string                `json:"version"`
 }
 
 // Mirrors the broker capability flag emitted via get_context so an
@@ -45,18 +45,19 @@ type serverInfoOutput struct {
 // fields stay absent until the first broker write so the not-yet-
 // bound state is visually distinct.
 type serverInfoAgentBroker struct {
-	ChainID          int      `json:"chainId,omitempty"`
-	DefaultPreset    string   `json:"defaultPreset,omitempty"`
-	DelegationID     uint64   `json:"delegationId,omitempty"`
-	Enabled          bool     `json:"enabled"`
-	ExpiresAtUnix    int64    `json:"expiresAtUnix,omitempty"`
-	Note             string   `json:"note"`
-	OwnerAddress     string   `json:"ownerAddress,omitempty"`
-	Permissions      []string `json:"permissions,omitempty"`
-	BrokerTools      []string `json:"brokerTools"`
-	SubAccountID     int64    `json:"subAccountId,omitempty"`
-	SubaccountSource string   `json:"subaccountSource,omitempty"`
-	WalletAddress    string   `json:"walletAddress,omitempty"`
+	ChainID           int               `json:"chainId,omitempty"`
+	DefaultGuardrails *guardrailsOutput `json:"defaultGuardrails,omitempty"`
+	DefaultPreset     string            `json:"defaultPreset,omitempty"`
+	DelegationID      uint64            `json:"delegationId,omitempty"`
+	Enabled           bool              `json:"enabled"`
+	ExpiresAtUnix     int64             `json:"expiresAtUnix,omitempty"`
+	Note              string            `json:"note"`
+	OwnerAddress      string            `json:"ownerAddress,omitempty"`
+	Permissions       []string          `json:"permissions,omitempty"`
+	BrokerTools       []string          `json:"brokerTools"`
+	SubAccountID      int64             `json:"subAccountId,omitempty"`
+	SubaccountSource  string            `json:"subaccountSource,omitempty"`
+	WalletAddress     string            `json:"walletAddress,omitempty"`
 }
 
 type listMarketsInput struct {
@@ -493,7 +494,7 @@ func RegisterPublicTools(server *mcp.Server, deps *ToolDeps) {
 	})
 
 	addPublicTool(server, deps, &mcp.Tool{
-		Name: "lookup_subaccount",
+		Name:        "lookup_subaccount",
 		Description: "Discover the subAccountId(s) belonging to a wallet address. Use this BEFORE preview_auth_message / authenticate when you have a private key (or wallet address) but do not yet know which subaccount to bind the MCP session to. Returns owned subaccounts and, when includeDelegations=true, also subaccounts where the wallet is a delegate (so a delegate-signer key can find the master account it can act on).",
 	}, func(ctx context.Context, tc ToolContext, input lookupSubaccountInput) (*mcp.CallToolResult, lookupSubaccountOutput, error) {
 		raw := strings.TrimSpace(input.WalletAddress)
@@ -639,11 +640,14 @@ func buildServerInfoAgentBroker(deps *ToolDeps) serverInfoAgentBroker {
 		}
 	}
 	out := serverInfoAgentBroker{
-		DefaultPreset: deps.Cfg.AgentBroker.DefaultPreset,
-		Enabled:       true,
+		DefaultGuardrails: guardrailsOutputForConfig(brokerDefaultGuardrailsConfig(deps)),
+		DefaultPreset:     deps.Cfg.AgentBroker.DefaultPreset,
+		Enabled:           true,
 		Note: "Broker enabled. Call place_order / " +
 			"close_position / cancel_order / " +
 			"cancel_all_orders for one-shot sign+submit. " +
+			"Guardrails are optional operator limits; the standard preset " +
+			"allows trading unless configured tighter. " +
 			"Do not call authenticate, preview_trade_signature, or " +
 			"signed_place_order unless you also hold a private key locally.",
 		BrokerTools: []string{

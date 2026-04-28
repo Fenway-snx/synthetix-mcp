@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
+	internal_auth "github.com/Fenway-snx/synthetix-mcp/internal/auth"
+	"github.com/Fenway-snx/synthetix-mcp/internal/config"
 	snx_lib_api_types "github.com/Fenway-snx/synthetix-mcp/internal/lib/api/types"
 	snx_lib_auth "github.com/Fenway-snx/synthetix-mcp/internal/lib/auth"
 	snx_lib_logging_doubles "github.com/Fenway-snx/synthetix-mcp/internal/lib/logging/doubles"
-	internal_auth "github.com/Fenway-snx/synthetix-mcp/internal/auth"
-	"github.com/Fenway-snx/synthetix-mcp/internal/config"
 	"github.com/Fenway-snx/synthetix-mcp/internal/tools"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -242,6 +242,8 @@ func TestServerInstructionsTellAgentsNotToFallbackToBash(t *testing.T) {
 	for _, want := range []string{
 		"quickstart prompt",
 		"BTC-USDT",
+		"Guardrails",
+		"at most once",
 		"unknown tool",
 		"do not fall back to Bash",
 		"restart Claude Code",

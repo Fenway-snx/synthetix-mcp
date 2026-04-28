@@ -101,27 +101,21 @@ func TestClassifyPlaceOrderPhase(t *testing.T) {
 }
 
 // nextStepsForAuthenticatedSession is what makes the authenticate tool
-// self-explanatory. The original transcript showed the agent calling
-// place_order immediately after authenticate and getting bounced by
-// the read_only fallback; this helper has to surface the "you forgot
-// set_guardrails" hint so a fresh session never silently rejects
-// trading.
+// self-explanatory. Guardrails are optional by default; explicit read_only
+// remains the way to make a session view-only.
 func TestNextStepsForAuthenticatedSession(t *testing.T) {
-	t.Run("no_state_includes_set_guardrails_hint", func(t *testing.T) {
+	t.Run("no_state_says_guardrails_are_optional", func(t *testing.T) {
 		steps := nextStepsForAuthenticatedSession(nil)
-		if !containsSubstring(steps, "set_guardrails") {
-			t.Fatalf("expected nil-state next steps to include set_guardrails hint, got %v", steps)
+		if !containsSubstring(steps, "Trading is still allowed by default") {
+			t.Fatalf("expected nil-state next steps to say guardrails are optional, got %v", steps)
 		}
 	})
 
-	t.Run("nil_guardrails_includes_set_guardrails_hint", func(t *testing.T) {
+	t.Run("nil_guardrails_says_guardrails_are_optional", func(t *testing.T) {
 		state := &session.State{AuthMode: session.AuthModeAuthenticated, SubAccountID: 1, WalletAddress: "0x"}
 		steps := nextStepsForAuthenticatedSession(state)
-		if !containsSubstring(steps, "set_guardrails") {
-			t.Fatalf("expected missing-guardrails next steps to include set_guardrails hint, got %v", steps)
-		}
-		if !containsSubstring(steps, "accept or edit") {
-			t.Fatalf("expected missing-guardrails next steps to ask for user accept/edit, got %v", steps)
+		if !containsSubstring(steps, "Trading is still allowed by default") {
+			t.Fatalf("expected missing-guardrails next steps to say guardrails are optional, got %v", steps)
 		}
 	})
 
@@ -157,8 +151,8 @@ func TestNextStepsForAuthenticatedSession(t *testing.T) {
 		if !containsSubstring(steps, "signed_place_order") {
 			t.Fatalf("expected standard-preset next steps to mention an order tool, got %v", steps)
 		}
-		if !containsSubstring(steps, "accept or edit") {
-			t.Fatalf("expected standard-preset next steps to ask for user accept/edit, got %v", steps)
+		if !containsSubstring(steps, "single trade confirmation") {
+			t.Fatalf("expected standard-preset next steps to mention one confirmation, got %v", steps)
 		}
 	})
 }
@@ -178,7 +172,7 @@ func containsSubstring(items []string, needle string) bool {
 // brokerTools when the broker is on, or forgetting the "never paste
 // signatures" guidance when it is off.
 func TestContextCapabilitiesFromFlagsBrokerEnabled(t *testing.T) {
-	caps := contextCapabilitiesFromFlags(true, "standard")
+	caps := contextCapabilitiesFromFlags(true, &guardrails.Config{Preset: guardrails.PresetStandard})
 	if !caps.AgentBroker.Enabled {
 		t.Fatalf("expected AgentBroker.Enabled = true when broker flag set")
 	}
@@ -206,16 +200,21 @@ func TestContextCapabilitiesFromFlagsBrokerEnabled(t *testing.T) {
 	if caps.AgentBroker.DefaultPreset != "standard" {
 		t.Fatalf("expected DefaultPreset to flow through, got %q", caps.AgentBroker.DefaultPreset)
 	}
+	if caps.AgentBroker.DefaultGuardrails == nil ||
+		len(caps.AgentBroker.DefaultGuardrails.AllowedSymbols) == 0 ||
+		caps.AgentBroker.DefaultGuardrails.AllowedSymbols[0] != "*" {
+		t.Fatalf("expected resolved default guardrails to be surfaced, got %#v", caps.AgentBroker.DefaultGuardrails)
+	}
 	if !containsSubstring(caps.RecommendedFlow, "place_order") {
 		t.Fatalf("expected recommendedFlow to point at place_order, got %v", caps.RecommendedFlow)
 	}
-	if !containsSubstring(caps.RecommendedFlow, "accept or edit") {
-		t.Fatalf("expected recommendedFlow to include guardrail accept/edit step, got %v", caps.RecommendedFlow)
+	if !containsSubstring(caps.RecommendedFlow, "single confirmation") {
+		t.Fatalf("expected recommendedFlow to include one confirmation guidance, got %v", caps.RecommendedFlow)
 	}
 }
 
 func TestContextCapabilitiesFromFlagsBrokerDisabled(t *testing.T) {
-	caps := contextCapabilitiesFromFlags(false, "")
+	caps := contextCapabilitiesFromFlags(false, nil)
 	if caps.AgentBroker.Enabled {
 		t.Fatalf("expected AgentBroker.Enabled = false when broker flag clear")
 	}
@@ -234,7 +233,7 @@ func TestContextCapabilitiesFromFlagsBrokerDisabled(t *testing.T) {
 		t.Fatalf("expected disabled-broker note to repeat the no-paste rule, got %q", caps.AgentBroker.Note)
 	}
 	joined := strings.Join(caps.RecommendedFlow, " | ")
-	for _, mustMention := range []string{"preview_auth_message", "authenticate", "accept or edit", "set_guardrails", "signed_place_order"} {
+	for _, mustMention := range []string{"preview_auth_message", "authenticate", "Optionally call set_guardrails", "signed_place_order", "at most once"} {
 		if !strings.Contains(joined, mustMention) {
 			t.Fatalf("expected client-signing recommendedFlow to mention %q, got %q", mustMention, joined)
 		}
@@ -260,6 +259,9 @@ func TestBuildServerInfoAgentBrokerEnabled(t *testing.T) {
 	}
 	if info.DefaultPreset != "standard" {
 		t.Fatalf("expected DefaultPreset to flow through, got %q", info.DefaultPreset)
+	}
+	if info.DefaultGuardrails == nil || info.DefaultGuardrails.EffectivePreset != "standard" {
+		t.Fatalf("expected default guardrails to flow through, got %#v", info.DefaultGuardrails)
 	}
 	if len(info.BrokerTools) != 4 {
 		t.Fatalf("expected four brokerTools, got %v", info.BrokerTools)

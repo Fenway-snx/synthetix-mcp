@@ -488,7 +488,7 @@ func agentGuideContents(cfg *config.Config) string {
 func runbookContents() string {
 	return `# MCP Runbooks
 
-> **Pick your signing path first.** Call get_server_info once per session and inspect agentBroker.enabled. If true, follow the "Self-hosted broker path" sections below; the broker auto-authenticates and signs server-side, so you should NOT call authenticate, set_guardrails, preview_auth_message, preview_trade_signature, or any signed_* write tool. If false, you must hold a private key locally and follow the "Wallet path" sections. Never ask a human user to paste an EIP-712 signature into chat.
+> **Pick your signing path first.** Call get_server_info once per session and inspect agentBroker.enabled. If true, follow the "Self-hosted broker path" sections below; the broker auto-authenticates and signs server-side, so you should NOT call authenticate, preview_auth_message, preview_trade_signature, or any signed_* write tool. Guardrails are optional operator limits; call set_guardrails only to tighten a session or switch it to read_only. If broker is false, you must hold a private key locally and follow the "Wallet path" sections. Never ask a human user to paste an EIP-712 signature into chat.
 
 ## Session bootstrap
 
@@ -499,7 +499,7 @@ func runbookContents() string {
 ### Wallet path (broker disabled)
 1. Call get_context for a consolidated snapshot of server, session, markets, and account.
 2. If not yet authenticated, do not ask the user to paste a signature. Ask the user to run sample/node-scripts/authenticate-external-wallet.mjs in a terminal with this MCP session ID; the sidecar calls preview_auth_message, signs locally, and calls authenticate.
-3. Call set_guardrails (preset='standard' is a safe default) so trading tools don't fall back to read_only.
+3. Optionally call set_guardrails if the operator wants tighter per-session limits or read_only mode.
 4. Call get_context again to confirm authMode='authenticated' and review account margin.
 
 ## Market analysis (signing-path agnostic)
@@ -515,8 +515,9 @@ func runbookContents() string {
 1. Call get_account_summary to check margin capacity.
 2. Call get_positions to understand existing exposure.
 3. Call get_open_orders to check for pending orders on the same market.
-4. Call place_order with {symbol, side, type, quantity, price?, clientOrderId}. The broker validates guardrails, signs the placeOrders action, and submits in one round trip.
-5. Inspect the response's phase and followUp fields. phase='ACCEPTED' is a successful resting order; phase='PENDING_CONFIRMATION' means poll get_open_orders / get_order_history with the returned clientOrderId; phase='REJECTED' carries errorCode and errorDetail.
+4. Ask for confirmation at most once for this operation, combining order details, account context, and guardrails.
+5. Call place_order with {symbol, side, type, quantity, price?, clientOrderId}. The broker validates configured guardrails, signs the placeOrders action, and submits in one round trip.
+6. Inspect the response's phase and followUp fields. phase='ACCEPTED' is a successful resting order; phase='PENDING_CONFIRMATION' means poll get_open_orders / get_order_history with the returned clientOrderId; phase='REJECTED' carries errorCode and errorDetail.
 
 ### Wallet path (broker disabled)
 1. Call get_account_summary to check margin capacity.

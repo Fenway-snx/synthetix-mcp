@@ -35,16 +35,17 @@ type authenticateOutput struct {
 }
 
 type getSessionOutput struct {
-	Meta                responseMeta      `json:"_meta"`
-	ActiveSubscriptions []string          `json:"activeSubscriptions"`
-	AgentGuardrails     *guardrailsOutput `json:"agentGuardrails,omitempty"`
-	AuthMode            string            `json:"authMode"`
-	CreatedAt           int64             `json:"createdAt"`
-	ExpiresAt           int64             `json:"expiresAt"`
-	LastActivityAt      int64             `json:"lastActivityAt"`
-	SessionID           string            `json:"sessionId"`
-	SubAccountID        int64             `json:"subAccountId,omitempty,string"`
-	WalletAddress       string            `json:"walletAddress,omitempty"`
+	Meta                    responseMeta      `json:"_meta"`
+	ActiveSubscriptions     []string          `json:"activeSubscriptions"`
+	AgentGuardrails         *guardrailsOutput `json:"agentGuardrails,omitempty"`
+	AuthMode                string            `json:"authMode"`
+	BrokerDefaultGuardrails *guardrailsOutput `json:"brokerDefaultGuardrails,omitempty"`
+	CreatedAt               int64             `json:"createdAt"`
+	ExpiresAt               int64             `json:"expiresAt"`
+	LastActivityAt          int64             `json:"lastActivityAt"`
+	SessionID               string            `json:"sessionId"`
+	SubAccountID            int64             `json:"subAccountId,omitempty,string"`
+	WalletAddress           string            `json:"walletAddress,omitempty"`
 }
 
 type restoreSessionInput struct {
@@ -118,12 +119,9 @@ func RegisterSessionTools(
 		// so drop the public first-seen entry to avoid unbounded growth.
 		deps.PublicSessions.Forget(sessionID)
 
-		// Re-fetch the now-authenticated session so we can surface the
-		// resolved guardrails (which default to read_only) and tell the
-		// agent the next call it most likely needs to make. The original
-		// transcript demonstrated agents repeatedly trying place_order
-		// against the read_only fallback because authenticate's response
-		// gave no indication the session was write-disabled.
+		// Re-fetch the now-authenticated session so we can surface any
+		// session-specific guardrails and tell the agent the next call it
+		// most likely needs to make.
 		refreshed, _ := loadSessionState(ctx, deps.Store, sessionID)
 		out := authenticateOutput{
 			Meta:             newResponseMeta(string(session.AuthModeAuthenticated)),
@@ -158,6 +156,9 @@ func RegisterSessionStateTools(
 			AuthMode:            authModeForState(state),
 			SessionID:           sessionID,
 		}
+		if deps != nil && deps.Cfg != nil && deps.Cfg.AgentBroker.Enabled {
+			output.BrokerDefaultGuardrails = guardrailsOutputForConfig(brokerDefaultGuardrailsConfig(deps))
+		}
 		if state != nil {
 			output.AgentGuardrails = guardrailsOutputForState(state)
 			output.CreatedAt = state.CreatedAt
@@ -179,7 +180,7 @@ func RegisterSessionStateTools(
 
 	addAuthenticatedTool(server, deps, &mcp.Tool{
 		Name:        "set_guardrails",
-		Description: "Set per-session agent safety guardrails for trading tools. Unknown presets fail closed to read_only.",
+		Description: "Optionally set per-session agent safety guardrails for trading tools. Unknown presets fail closed to read_only.",
 	}, noSubAccount[setGuardrailsInput], func(ctx context.Context, tc ToolContext, input setGuardrailsInput) (*mcp.CallToolResult, setGuardrailsOutput, error) {
 		sessionID := tc.SessionID
 		state := tc.State
@@ -271,29 +272,28 @@ func activeSubscriptions(reader SessionSubscriptionReader, sessionID string) []s
 	return channels
 }
 
-// Lists immediate next actions after authenticate. Surfaces the
-// set_guardrails step inline so the agent doesn't loop on
-// GUARDRAIL_VIOLATION from the default read_only fallback.
+// Lists immediate next actions after authenticate. Guardrails are optional;
+// this helper only recommends set_guardrails when the session was explicitly
+// placed in read_only or the operator wants tighter per-session limits.
 func nextStepsForAuthenticatedSession(state *session.State) []string {
 	steps := []string{
 		"Call get_session to confirm walletAddress, subAccountId, expiresAt, and active guardrails.",
 	}
 	if state == nil || state.AgentGuardrails == nil {
 		steps = append(steps,
-			"Call set_guardrails with preset='standard' (or 'read_only' for view-only sessions) before any trading tool. Sessions default to read_only and will reject trades with GUARDRAIL_VIOLATION until set_guardrails has been called.",
-			"Before setting writable guardrails, show the proposed allowed symbols, order types, max order notional/quantity, and max position notional/quantity to the user and ask them to accept or edit them.",
+			"No session-specific guardrails are set. Trading is still allowed by default; call set_guardrails only if the operator wants tighter per-session limits or read_only mode.",
 		)
 		return steps
 	}
 	resolved, err := guardrails.Resolve(state.AgentGuardrails)
 	if err != nil || resolved == nil || !resolved.WriteEnabled() {
 		steps = append(steps,
-			"Call set_guardrails with preset='standard' to enable trading tools. The current session is in read_only mode and will reject orders with GUARDRAIL_VIOLATION.",
+			"Call set_guardrails with preset='standard' to re-enable trading tools, or keep read_only for view-only sessions.",
 		)
 		return steps
 	}
 	steps = append(steps,
-		"Show get_session.agentGuardrails to the user and ask them to accept or edit those limits before submitting any order.",
+		"Include active guardrails in the single trade confirmation if the user has not already approved the operation.",
 		"Use preview_trade_signature → sign locally → signed_place_order for trading (only if you, the agent, hold the signing key).",
 		"If get_server_info.agentBroker.enabled=true, prefer place_order / close_position / cancel_order / cancel_all_orders — they sign and submit in one round trip.",
 		"Never ask the human user to paste an EIP-712 signature, hex digest, or private key into chat.",
@@ -306,13 +306,21 @@ func guardrailsOutputForState(state *session.State) *guardrailsOutput {
 		return nil
 	}
 
-	resolved, err := guardrails.Resolve(state.AgentGuardrails)
+	return guardrailsOutputForConfig(state.AgentGuardrails)
+}
+
+func guardrailsOutputForConfig(cfg *guardrails.Config) *guardrailsOutput {
+	if cfg == nil {
+		return nil
+	}
+
+	resolved, err := guardrails.Resolve(cfg)
 	if err != nil {
 		return &guardrailsOutput{
 			AllowedOrderTypes: []string{},
 			AllowedSymbols:    []string{},
 			EffectivePreset:   guardrails.PresetReadOnly,
-			RequestedPreset:   state.AgentGuardrails.Preset,
+			RequestedPreset:   cfg.Preset,
 			WriteEnabled:      false,
 		}
 	}
@@ -337,4 +345,20 @@ func guardrailsOutputForState(state *session.State) *guardrailsOutput {
 		out.MaxPositionNotional = resolved.MaxPositionNotional.String()
 	}
 	return out
+}
+
+func brokerDefaultGuardrailsConfig(deps *ToolDeps) *guardrails.Config {
+	if deps == nil || deps.Cfg == nil {
+		return nil
+	}
+	defaults := deps.Cfg.AgentBroker
+	return &guardrails.Config{
+		AllowedOrderTypes:   append([]string{}, defaults.DefaultAllowedTypes...),
+		AllowedSymbols:      append([]string{}, defaults.DefaultAllowedSymbols...),
+		MaxOrderNotional:    defaults.DefaultMaxOrderNotional,
+		MaxOrderQuantity:    defaults.DefaultMaxOrderQty,
+		MaxPositionNotional: defaults.DefaultMaxPositionNotional,
+		MaxPositionQuantity: defaults.DefaultMaxPositionQty,
+		Preset:              defaults.DefaultPreset,
+	}
 }

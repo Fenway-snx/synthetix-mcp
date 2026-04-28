@@ -14,6 +14,15 @@ func TestApplyDefaultsSetsEveryZeroValue(t *testing.T) {
 	if cfg.APIBaseURL != DefaultAPIBaseURL {
 		t.Fatalf("expected API base URL default %q, got %q", DefaultAPIBaseURL, cfg.APIBaseURL)
 	}
+	if cfg.AgentBroker.DefaultPreset != DefaultAgentBrokerPreset {
+		t.Fatalf("expected broker default preset %q, got %q", DefaultAgentBrokerPreset, cfg.AgentBroker.DefaultPreset)
+	}
+	if len(cfg.AgentBroker.DefaultAllowedSymbols) != 1 || cfg.AgentBroker.DefaultAllowedSymbols[0] != DefaultAgentBrokerAllowedSymbol {
+		t.Fatalf("expected broker default symbols %s, got %#v", DefaultAgentBrokerAllowedSymbol, cfg.AgentBroker.DefaultAllowedSymbols)
+	}
+	if len(cfg.AgentBroker.DefaultAllowedTypes) != 2 || cfg.AgentBroker.DefaultAllowedTypes[0] != "LIMIT" || cfg.AgentBroker.DefaultAllowedTypes[1] != "MARKET" {
+		t.Fatalf("expected broker default order types LIMIT,MARKET, got %#v", cfg.AgentBroker.DefaultAllowedTypes)
+	}
 	if cfg.AuthCacheMaxEntries != DefaultAuthCacheMaxEntries {
 		t.Fatalf("expected auth cache default %d, got %d", DefaultAuthCacheMaxEntries, cfg.AuthCacheMaxEntries)
 	}
@@ -72,7 +81,12 @@ func TestApplyDefaultsSetsEveryZeroValue(t *testing.T) {
 
 func TestApplyDefaultsPreservesExplicitValues(t *testing.T) {
 	cfg := &Config{
-		APIBaseURL:                 "https://example.invalid",
+		APIBaseURL: "https://example.invalid",
+		AgentBroker: AgentBrokerConfig{
+			DefaultAllowedSymbols: []string{"ETH-USDT"},
+			DefaultAllowedTypes:   []string{"LIMIT"},
+			DefaultPreset:         "read_only",
+		},
 		AuthCacheMaxEntries:        11,
 		EIP712ChainID:              42,
 		EIP712DomainName:           "Custom",
@@ -96,6 +110,15 @@ func TestApplyDefaultsPreservesExplicitValues(t *testing.T) {
 
 	if cfg.APIBaseURL != "https://example.invalid" {
 		t.Fatalf("expected explicit API base URL to be preserved, got %q", cfg.APIBaseURL)
+	}
+	if cfg.AgentBroker.DefaultPreset != "read_only" {
+		t.Fatalf("expected explicit broker default preset to be preserved, got %q", cfg.AgentBroker.DefaultPreset)
+	}
+	if len(cfg.AgentBroker.DefaultAllowedSymbols) != 1 || cfg.AgentBroker.DefaultAllowedSymbols[0] != "ETH-USDT" {
+		t.Fatalf("expected explicit broker symbols to be preserved, got %#v", cfg.AgentBroker.DefaultAllowedSymbols)
+	}
+	if len(cfg.AgentBroker.DefaultAllowedTypes) != 1 || cfg.AgentBroker.DefaultAllowedTypes[0] != "LIMIT" {
+		t.Fatalf("expected explicit broker order types to be preserved, got %#v", cfg.AgentBroker.DefaultAllowedTypes)
 	}
 	if cfg.AuthCacheMaxEntries != 11 {
 		t.Fatalf("expected explicit auth cache entries to be preserved, got %d", cfg.AuthCacheMaxEntries)
@@ -217,6 +240,32 @@ func TestLoadAllowsExplicitAgentBrokerDisable(t *testing.T) {
 	}
 }
 
+func TestLoadReadsBrokerDefaultGuardrailEnvironment(t *testing.T) {
+	t.Setenv("SNXMCP_AGENT_BROKER_PRIVATE_KEY_HEX", strings.Repeat("1", 64))
+	t.Setenv("SNXMCP_AGENT_BROKER_DEFAULT_PRESET", "standard")
+	t.Setenv("SNXMCP_AGENT_BROKER_DEFAULT_ALLOWED_SYMBOLS", "BTC-USDT, ETH-USDT")
+	t.Setenv("SNXMCP_AGENT_BROKER_DEFAULT_ALLOWED_ORDER_TYPES", "LIMIT, MARKET")
+	t.Setenv("SNXMCP_AGENT_BROKER_DEFAULT_MAX_ORDER_NOTIONAL", "1000")
+	t.Setenv("SNXMCP_AGENT_BROKER_DEFAULT_MAX_POSITION_QUANTITY", "2")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("expected config load to succeed, got %v", err)
+	}
+	if got := cfg.AgentBroker.DefaultAllowedSymbols; len(got) != 2 || got[0] != "BTC-USDT" || got[1] != "ETH-USDT" {
+		t.Fatalf("expected allowed symbols from env, got %#v", got)
+	}
+	if got := cfg.AgentBroker.DefaultAllowedTypes; len(got) != 2 || got[0] != "LIMIT" || got[1] != "MARKET" {
+		t.Fatalf("expected allowed order types from env, got %#v", got)
+	}
+	if cfg.AgentBroker.DefaultMaxOrderNotional != "1000" {
+		t.Fatalf("expected max order notional from env, got %q", cfg.AgentBroker.DefaultMaxOrderNotional)
+	}
+	if cfg.AgentBroker.DefaultMaxPositionQty != "2" {
+		t.Fatalf("expected max position quantity from env, got %q", cfg.AgentBroker.DefaultMaxPositionQty)
+	}
+}
+
 func TestLoadBrokerEnabledWithoutKeyExplainsHowToProceed(t *testing.T) {
 	_, err := Load()
 	if err == nil {
@@ -234,4 +283,3 @@ func TestLoadBrokerEnabledWithoutKeyExplainsHowToProceed(t *testing.T) {
 		t.Fatalf("expected read-only/external-wallet remediation, got %s", message)
 	}
 }
-

@@ -165,9 +165,9 @@ func classifyToolError(err error) (string, string, []string) {
 	switch {
 	case containsAny(lower, []string{"guardrail violation"}):
 		return "GUARDRAIL_VIOLATION", "The current session guardrails do not permit this action.", []string{
-			"If you have not yet called set_guardrails, do so now: sessions default to preset='read_only' and reject all trading tools.",
-			"For typical agent trading flows call set_guardrails with preset='standard' (optionally restrict allowedSymbols / maxOrderQuantity / maxPositionQuantity).",
 			"Inspect get_session.agentGuardrails for the active preset and limits before retrying.",
+			"If preset is read_only, call set_guardrails with preset='standard' to re-enable trading or keep the session view-only.",
+			"If a configured limit was hit, reduce the order or ask the operator to update the guardrail configuration.",
 		}
 	case containsAny(lower, notImplementedErrorPhrases):
 		return "NOT_IMPLEMENTED", "This tool is not implemented for the current phase.", []string{

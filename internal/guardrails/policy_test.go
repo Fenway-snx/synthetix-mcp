@@ -15,6 +15,28 @@ func TestResolveUnknownPresetFallsBackToReadOnly(t *testing.T) {
 	}
 }
 
+func TestResolveNilDefaultsToUnrestrictedStandard(t *testing.T) {
+	resolved, err := Resolve(nil)
+	if err != nil {
+		t.Fatalf("expected nil config to resolve, got error: %v", err)
+	}
+	if resolved.EffectivePreset != PresetStandard {
+		t.Fatalf("expected %s, got %s", PresetStandard, resolved.EffectivePreset)
+	}
+	if !resolved.WriteEnabled() {
+		t.Fatal("expected writes enabled")
+	}
+	if !resolved.IsSymbolAllowed("BTC-USDT") {
+		t.Fatalf("expected default symbol wildcard, got %#v", resolved.AllowedSymbols)
+	}
+	if !resolved.IsOrderTypeAllowed("LIMIT") || !resolved.IsOrderTypeAllowed("MARKET") {
+		t.Fatalf("expected default order types, got %#v", resolved.AllowedOrderTypes)
+	}
+	if resolved.HasMaxOrderQuantity() || resolved.HasMaxOrderNotional() || resolved.HasMaxPositionQuantity() || resolved.HasMaxPositionNotional() {
+		t.Fatal("expected no default quantity/notional caps")
+	}
+}
+
 func TestResolveStandardNormalizesSymbolsAndTypes(t *testing.T) {
 	resolved, err := Resolve(&Config{
 		Preset:              PresetStandard,

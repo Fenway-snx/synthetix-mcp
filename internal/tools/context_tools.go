@@ -8,6 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/Fenway-snx/synthetix-mcp/internal/guardrails"
 	"github.com/Fenway-snx/synthetix-mcp/internal/session"
 	"github.com/synthetixio/synthetix-go/types"
 )
@@ -39,10 +40,11 @@ type contextCapabilities struct {
 }
 
 type contextAgentBroker struct {
-	DefaultPreset string   `json:"defaultPreset,omitempty"`
-	Enabled       bool     `json:"enabled"`
-	Note          string   `json:"note"`
-	BrokerTools   []string `json:"brokerTools"`
+	DefaultGuardrails *guardrailsOutput `json:"defaultGuardrails,omitempty"`
+	DefaultPreset     string            `json:"defaultPreset,omitempty"`
+	Enabled           bool              `json:"enabled"`
+	Note              string            `json:"note"`
+	BrokerTools       []string          `json:"brokerTools"`
 }
 
 type contextSession struct {
@@ -98,7 +100,7 @@ func RegisterContextTools(
 			Meta: newResponseMeta(authMode),
 			Capabilities: contextCapabilitiesFromFlags(
 				deps.Cfg.AgentBroker.Enabled,
-				deps.Cfg.AgentBroker.DefaultPreset,
+				brokerDefaultGuardrailsConfig(deps),
 			),
 			Server: contextServer{
 				Environment: deps.Cfg.Environment,
@@ -216,7 +218,7 @@ func RegisterContextTools(
 // resorts to asking the user to paste signatures.
 func contextCapabilitiesFromFlags(
 	brokerEnabled bool,
-	defaultPreset string,
+	defaultGuardrails *guardrails.Config,
 ) contextCapabilities {
 	caps := contextCapabilities{
 		AgentBroker: contextAgentBroker{
@@ -227,7 +229,13 @@ func contextCapabilitiesFromFlags(
 		},
 	}
 	if brokerEnabled {
+		defaultGuardrailsOut := guardrailsOutputForConfig(defaultGuardrails)
+		defaultPreset := ""
+		if defaultGuardrailsOut != nil {
+			defaultPreset = defaultGuardrailsOut.EffectivePreset
+		}
 		caps.AgentBroker.DefaultPreset = defaultPreset
+		caps.AgentBroker.DefaultGuardrails = defaultGuardrailsOut
 		caps.AgentBroker.BrokerTools = []string{
 			"place_order",
 			"close_position",
@@ -236,12 +244,13 @@ func contextCapabilitiesFromFlags(
 		}
 		caps.AgentBroker.Note = "Broker holds the trading key " +
 			"server-side. Call canonical broker tools for one-shot " +
-			"sign+submit; you do not need to call authenticate, " +
+			"sign+submit; guardrails are optional operator limits, not " +
+			"a prerequisite. You do not need to call authenticate, " +
 			"set_guardrails, preview_trade_signature, or signed_place_order."
 		caps.SigningPolicy = "broker"
 		caps.RecommendedFlow = []string{
 			"1. Call get_market_summary (and get_orderbook for limit orders) on your target symbol.",
-			"2. Show the broker default or active session guardrails to the user, including allowed symbols/order types and max order/position notional or quantity. Ask them to accept or edit before any order submission.",
+			"2. Include the broker default or active session guardrails in the single confirmation for the operation if the user has not already confirmed it.",
 			"3. Call place_order with {symbol, side, type, quantity, price?, clientOrderId}. " +
 				"It will auto-authenticate, apply the broker's default guardrails (preset='" + defaultPresetOrFallback(defaultPreset) + "'), sign with the broker's key, and submit in one call.",
 			"4. Inspect the returned phase and followUp; call get_open_orders / get_order_history with the returned clientOrderId to confirm the final state.",
@@ -259,9 +268,9 @@ func contextCapabilitiesFromFlags(
 			"1. Call lookup_subaccount with your wallet address to discover its subaccountId(s).",
 			"2. Call preview_auth_message and sign the returned typedData with your local key (viem.signTypedData / eth_signTypedData_v4 / ethers Wallet._signTypedData / Web3.py sign_typed_data).",
 			"3. Call authenticate with the serialized typedData and 0x-prefixed signature.",
-			"4. Propose guardrails, show allowed symbols/order types and max order/position notional or quantity to the user, and ask them to accept or edit.",
-			"5. Call set_guardrails with the accepted values (sessions default to read_only).",
-			"6. For each trade: preview_trade_signature → sign locally → signed_place_order (or signed_modify_order / signed_cancel_order / signed_cancel_all_orders / signed_close_position) with the echoed nonce + expiresAfter + split signature.",
+			"4. Optionally call set_guardrails if the operator wants tighter per-session limits or read_only mode.",
+			"5. For each trade: preview_trade_signature → sign locally → signed_place_order (or signed_modify_order / signed_cancel_order / signed_cancel_all_orders / signed_close_position) with the echoed nonce + expiresAfter + split signature.",
+			"6. Ask for confirmation at most once per trade or operation; combine order details, account context, and guardrails in that single prompt.",
 			"7. If you have no local signer, do NOT prompt the user — refuse the trade and explain that the operator must enable the broker or run sample/node-scripts.",
 		}
 	}

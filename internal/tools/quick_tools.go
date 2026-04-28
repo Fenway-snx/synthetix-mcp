@@ -370,9 +370,9 @@ func addAuthenticatedQuickTool[In, Out any](
 //   - If the session is unauthenticated, run broker.SignAuthMessage and
 //     authenticator.Authenticate to bind the session to the broker
 //     wallet's subaccount.
-//   - If the session is missing guardrails (i.e. would fall back to
-//     read_only), seed it with the broker's GuardrailDefaults so the
-//     subsequent trading call passes the guardrail check.
+//   - If the session is missing guardrails, materialize the broker's
+//     GuardrailDefaults so get_session reflects the effective default
+//     instead of relying on an implicit nil policy.
 //
 // On the happy path (session already authenticated AND guardrails
 // already configured) this is a single in-memory session read, no

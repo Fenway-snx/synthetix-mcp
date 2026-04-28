@@ -120,7 +120,8 @@ Use the synthetix-dex-mcp MCP. Read system://routing-guide, then run the quickst
 ```
 
 For first real trades, keep size tiny and require explicit confirmation before
-submission.
+submission. Ask for confirmation once per trade or operation: include order
+details, account context, and guardrails in the same prompt.
 
 ## 4. What Claude Should Use
 
