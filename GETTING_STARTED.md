@@ -84,7 +84,11 @@ cp config.env.example config.env
 ./scripts/setup-broker-key.sh
 ```
 
-The script prompts for your delegated trading private key with hidden terminal input and writes it to a local gitignored file. Use a delegated trading key, not an owner key.
+The script prompts for your delegated trading private key with hidden terminal
+input and writes it to `.secrets/agent-broker-private-key` by default. It also
+updates `config.env` to point broker mode at that key file. Both `config.env`
+and `.secrets/` are gitignored, and the key file is written with `0600`
+permissions. Use a delegated trading key, not an owner key.
 
 Optional but recommended, persist authenticated session bindings and guardrails across local restarts:
 
@@ -143,39 +147,34 @@ disarm_dead_man_switch
 Claude should not use `signed_*` tools or `preview_trade_signature` in broker
 mode. Read `system://routing-guide` for the machine-readable routing rules.
 
-## 5. External-Wallet Mode
+## 5. Client Setup
 
-External-wallet mode is advanced. Start without broker signing:
+### Claude Code Onboarding
 
-```bash
-go run ./cmd/server --no-broker
-```
-
-Claude cannot sign EIP-712 payloads by itself. Use the terminal sidecar instead
-of pasting signatures into chat:
+Register the local MCP server with Claude Code:
 
 ```bash
-cd sample/node-scripts
-npm install
-node authenticate-external-wallet.mjs \
-  --session-id <SESSION_ID_FROM_CLAUDE_GET_SESSION> \
-  --subaccount-id <SUBACCOUNT_ID> \
-  --private-key-file ~/.synthetix/delegate-key
+./scripts/setup-claude-code.sh
+claude mcp list
 ```
 
-Flow:
+You should see:
 
 ```text
-1. In Claude: call get_session and show only sessionId.
-2. In terminal: run the node script above with that sessionId.
-3. In Claude: call get_session again and confirm authMode is authenticated.
+synthetix-dex-mcp: http://localhost:8096/mcp (HTTP) - Connected
 ```
 
-If `--session-id` is omitted, the script authenticates its own standalone MCP
-session. That is useful for scripts, but it will not authenticate Claude's
-separate session.
+Restart Claude Code if the setup script just added or changed the server. Open a
+new Claude session and start with:
 
-## 6. Cursor Setup
+```text
+You have MCP tools available from synthetix-dex-mcp. Before doing anything else, call ping to verify the connection. If ping fails or you see "unknown tool", stop, do not use Bash as a fallback, and tell me to restart Claude Code and run: claude mcp list.
+```
+
+For broker-mode trading sessions, use the guided trading prompt in
+[Trading Mode](#3-trading-mode) after `ping` succeeds.
+
+### Cursor Setup
 
 Add this to `.cursor/mcp.json`:
 
@@ -191,7 +190,7 @@ Add this to `.cursor/mcp.json`:
 
 Reload Cursor so the MCP server is discovered.
 
-## 7. Troubleshooting
+## 6. Troubleshooting
 
 ### Address Already In Use
 
@@ -271,3 +270,38 @@ SNXMCP_API_BASE_URL=https://papi.synthetix.io
 ```
 
 Older examples using `https://api.synthetix.io` will fail.
+
+# Appendix
+
+## Advanced/Optional External-Wallet Mode
+
+External-wallet mode is for users who intentionally do not want broker signing.
+Start without broker signing:
+
+```bash
+go run ./cmd/server --no-broker
+```
+
+Claude cannot sign EIP-712 payloads by itself. Use the terminal sidecar instead
+of pasting signatures into chat:
+
+```bash
+cd sample/node-scripts
+npm install
+node authenticate-external-wallet.mjs \
+  --session-id <SESSION_ID_FROM_CLAUDE_GET_SESSION> \
+  --subaccount-id <SUBACCOUNT_ID> \
+  --private-key-file ~/.synthetix/delegate-key
+```
+
+Flow:
+
+```text
+1. In Claude: call get_session and show only sessionId.
+2. In terminal: run the node script above with that sessionId.
+3. In Claude: call get_session again and confirm authMode is authenticated.
+```
+
+If `--session-id` is omitted, the script authenticates its own standalone MCP
+session. That is useful for scripts, but it will not authenticate Claude's
+separate session.
