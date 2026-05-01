@@ -274,6 +274,8 @@ func Register(server *mcp.Server, deps *tools.ToolDeps, tradeReads *tools.TradeR
 		}
 		return textResourceResult(req.Params.URI, "application/json", string(body)), nil
 	})
+
+	registerTradeJournal(server, deps, tradeReads)
 }
 
 func routingMode(brokerEnabled bool) string {
