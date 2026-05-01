@@ -74,7 +74,41 @@ type Manager struct {
 	mu             sync.Mutex
 	entries        map[int64]*entry
 	sessionEntries map[string]int64
+	observers      []TransitionObserver
 }
+
+// PositionTransition is emitted whenever the manager ingests a
+// fresh snapshot and detects a meaningful change in a position
+// quantity. nonzero → zero is the canonical "trade closed" signal
+// that triggers an MCP notification; zero → nonzero (a new
+// position) and a sign flip (long → short via cross-trade) are
+// also surfaced so observers can decide which to act on.
+type PositionTransition struct {
+	SubAccountID int64
+	SessionID    string
+	Symbol       string
+	Prior        decimal.Decimal
+	Current      decimal.Decimal
+	Kind         TransitionKind
+	ObservedAt   time.Time
+}
+
+// TransitionKind enumerates the shapes of position quantity change
+// the manager can detect from snapshot diffs alone (no fill data).
+type TransitionKind string
+
+const (
+	TransitionOpened    TransitionKind = "OPENED"
+	TransitionClosed    TransitionKind = "CLOSED"
+	TransitionFlipped   TransitionKind = "FLIPPED"
+	TransitionAdjusted  TransitionKind = "ADJUSTED"
+)
+
+// TransitionObserver is invoked synchronously while the manager
+// holds no internal locks. Observers must not call back into the
+// Manager on the same goroutine; spawn a goroutine if any further
+// Manager calls are needed.
+type TransitionObserver func(PositionTransition)
 
 type entry struct {
 	hydrating bool
@@ -99,6 +133,24 @@ func (m *Manager) SetMaxSnapshotAge(maxAge time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.maxSnapshotAge = maxAge
+}
+
+// SubscribeTransitions registers a TransitionObserver that the
+// manager will call after each fresh hydration whenever the new
+// snapshot's positions differ from the prior snapshot's. The hook
+// is the foundation for trade-closed MCP notifications: the
+// notifications layer subscribes here and pushes a card via the
+// streaming notifier when Kind == TransitionClosed.
+//
+// Observers are invoked synchronously after the manager releases
+// its lock. The order of invocation matches registration order.
+func (m *Manager) SubscribeTransitions(observer TransitionObserver) {
+	if m == nil || observer == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.observers = append(m.observers, observer)
 }
 
 // Injects the hydration client after construction; wiring needs to
@@ -152,14 +204,26 @@ func (m *Manager) EnsureHydrated(ctx context.Context, sessionID string, subAccou
 
 		m.mu.Lock()
 		state = m.ensureEntryLocked(subAccountID)
+		var transitions []PositionTransition
+		var observersCopy []TransitionObserver
 		if err == nil {
+			transitions = diffPositionTransitionsLocked(state.snapshot, snapshot, sessionID, subAccountID)
 			state.snapshot = snapshot
 			state.stale = false
+			if len(transitions) > 0 && len(m.observers) > 0 {
+				observersCopy = append(observersCopy, m.observers...)
+			}
 		}
 		state.hydrating = false
 		close(waitCh)
 		state.waitCh = nil
 		m.mu.Unlock()
+
+		for _, t := range transitions {
+			for _, observer := range observersCopy {
+				observer(t)
+			}
+		}
 
 		if err != nil {
 			return nil, err
@@ -518,6 +582,80 @@ func (m *Manager) snapshotExpiredLocked(snapshot *Snapshot) bool {
 		return false
 	}
 	return snx_lib_utils_time.Since(time.UnixMilli(snapshot.refreshedAtMs)) >= m.maxSnapshotAge
+}
+
+// diffPositionTransitionsLocked compares the position quantities on
+// two snapshots and emits a PositionTransition for each symbol whose
+// quantity meaningfully changed. "Meaningfully" excludes pure
+// magnitude-up changes on the same side (those are open-position
+// adds, not state-machine transitions worth a notification); we
+// still emit Kind=TransitionAdjusted for trims so observers can
+// decide. The caller must hold m.mu.
+func diffPositionTransitionsLocked(prior, current *Snapshot, sessionID string, subAccountID int64) []PositionTransition {
+	if current == nil {
+		return nil
+	}
+	priorMap := map[string]decimal.Decimal{}
+	if prior != nil {
+		for sym, qty := range prior.positionsBySymbol {
+			priorMap[sym] = qty
+		}
+	}
+
+	now := time.UnixMilli(current.refreshedAtMs)
+	if now.IsZero() {
+		now = snx_lib_utils_time.Now()
+	}
+
+	var out []PositionTransition
+	seen := map[string]struct{}{}
+	for sym, currentQty := range current.positionsBySymbol {
+		seen[sym] = struct{}{}
+		priorQty := priorMap[sym]
+		if priorQty.Equal(currentQty) {
+			continue
+		}
+		out = append(out, PositionTransition{
+			SubAccountID: subAccountID,
+			SessionID:    sessionID,
+			Symbol:       sym,
+			Prior:        priorQty,
+			Current:      currentQty,
+			Kind:         classifyTransition(priorQty, currentQty),
+			ObservedAt:   now,
+		})
+	}
+	for sym, priorQty := range priorMap {
+		if _, ok := seen[sym]; ok {
+			continue
+		}
+		if priorQty.IsZero() {
+			continue
+		}
+		out = append(out, PositionTransition{
+			SubAccountID: subAccountID,
+			SessionID:    sessionID,
+			Symbol:       sym,
+			Prior:        priorQty,
+			Current:      decimal.Zero,
+			Kind:         TransitionClosed,
+			ObservedAt:   now,
+		})
+	}
+	return out
+}
+
+func classifyTransition(prior, current decimal.Decimal) TransitionKind {
+	switch {
+	case prior.IsZero() && !current.IsZero():
+		return TransitionOpened
+	case !prior.IsZero() && current.IsZero():
+		return TransitionClosed
+	case prior.Sign() != current.Sign() && !prior.IsZero() && !current.IsZero():
+		return TransitionFlipped
+	default:
+		return TransitionAdjusted
+	}
 }
 
 func normalizeSymbol(symbol string) string {
