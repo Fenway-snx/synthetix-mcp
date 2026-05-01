@@ -17,6 +17,7 @@ import (
 
 	"github.com/Fenway-snx/synthetix-mcp/internal/agentbroker"
 	internal_auth "github.com/Fenway-snx/synthetix-mcp/internal/auth"
+	"github.com/Fenway-snx/synthetix-mcp/internal/cards"
 	"github.com/Fenway-snx/synthetix-mcp/internal/guardrails"
 	"github.com/Fenway-snx/synthetix-mcp/internal/lib/api/validation"
 	"github.com/Fenway-snx/synthetix-mcp/internal/risksnapshot"
@@ -106,6 +107,10 @@ func RegisterBrokerTools(
 			}
 			result := mapPlaceOrderResultREST(resp.Statuses[0], normalized.Symbol, normalized.Quantity)
 			applyPlacedOrderSnapshot(tc.SessionID, snapshotManager, normalized, result)
+			card := renderPlaceOrderCard(normalized, result)
+			if res, err := cards.Attach(card, result); err == nil && res != nil {
+				return res, result, nil
+			}
 			return nil, result, nil
 		})
 
