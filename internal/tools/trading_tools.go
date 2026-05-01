@@ -274,7 +274,7 @@ func RegisterTradingTools(
 				return toolErrorResponse[placeOrderOutput](err)
 			}
 			if err := enforcePlaceOrderGuardrails(ctx, tc.SessionID, tc.State, snapshotManager, marketConfigClient, normalized); err != nil {
-				return toolErrorResponse[placeOrderOutput](err)
+				return guardrailRejectionResponse[placeOrderOutput](err, normalized)
 			}
 			if err := authenticator.ValidateTradeAction(
 				tc.State.WalletAddress,

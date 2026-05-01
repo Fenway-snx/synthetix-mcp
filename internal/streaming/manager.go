@@ -225,6 +225,30 @@ func (m *Manager) BindSession(sessionID string, conn mcp.Connection) {
 	state.notifier = connectionNotifier{conn: conn}
 }
 
+// NotifySession sends a single notifications/event payload to the
+// connection bound to sessionID. Returns an error when the session
+// has no bound connection or the underlying transport rejects the
+// write. Used by the trade-closed notification path: the
+// risksnapshot manager detects nonzero→zero transitions and the
+// notifications layer pushes a card here so agents see realized
+// PnL hints without polling.
+func (m *Manager) NotifySession(ctx context.Context, sessionID string, params EventNotificationParams) error {
+	if sessionID == "" {
+		return fmt.Errorf("session ID is required")
+	}
+	m.mu.RLock()
+	state := m.sessions[sessionID]
+	var notifier sessionEventNotifier
+	if state != nil {
+		notifier = state.notifier
+	}
+	m.mu.RUnlock()
+	if notifier == nil {
+		return fmt.Errorf("session %s has no bound connection", sessionID)
+	}
+	return notifier.Notify(ctx, params)
+}
+
 // ClearPrivateSubscriptions is a no-op kept for API compatibility
 // with the pre-Phase-1.4 session-reset flow. Private streams no
 // longer exist; authenticate() invokes this but there is nothing to

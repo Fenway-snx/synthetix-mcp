@@ -274,6 +274,8 @@ func Register(server *mcp.Server, deps *tools.ToolDeps, tradeReads *tools.TradeR
 		}
 		return textResourceResult(req.Params.URI, "application/json", string(body)), nil
 	})
+
+	registerTradeJournal(server, deps, tradeReads)
 }
 
 func routingMode(brokerEnabled bool) string {
@@ -537,6 +539,12 @@ func runbookContents() string {
 
 ### Wallet path (broker disabled)
 - Use preview_trade_signature with action='closePosition' / 'cancelOrders' / 'cancelAllOrders' / 'modifyOrder', sign locally, then call the matching signed_* write tool with the echoed nonce/expiresAfter and {r,s,v} signature.
+
+## Performance review
+
+1. Read account://trade-journal to get the last 14 days of fills aggregated into a daily PnL bar chart, win-rate stats, per-symbol breakdown, and a list of recent closed trades. The resource is authenticated-only and cheap to re-read; it issues one upstream getTrades call per read and returns a markdown body with a compact card at the top.
+2. For deeper analysis, fan out to get_trade_history (raw fills, paginated) and get_funding_payments (funding-only series).
+3. Use account://trade-journal as the canonical "how have I traded recently?" answer; do not poll it on a tight loop.
 
 ## Session refresh
 1. Call restore_session to extend the current MCP session state when a client preserves the same MCP session context.

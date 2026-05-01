@@ -19,6 +19,7 @@ import (
 	snx_lib_api_types "github.com/Fenway-snx/synthetix-mcp/internal/lib/api/types"
 	snx_lib_auth "github.com/Fenway-snx/synthetix-mcp/internal/lib/auth"
 	snx_lib_logging "github.com/Fenway-snx/synthetix-mcp/internal/lib/logging"
+	"github.com/Fenway-snx/synthetix-mcp/internal/notifications/tradeclosed"
 	"github.com/Fenway-snx/synthetix-mcp/internal/prompts"
 	"github.com/Fenway-snx/synthetix-mcp/internal/resources"
 	"github.com/Fenway-snx/synthetix-mcp/internal/risksnapshot"
@@ -45,6 +46,7 @@ type Server struct {
 	logger      snx_lib_logging.Logger
 	mcpServer   *mcp.Server
 	streaming   closeOnly
+	tradeClosed *tradeclosed.Service
 }
 
 type readyCloser interface {
@@ -114,6 +116,7 @@ func New(
 		PublicSessions: publicSessions,
 		Store:          sessionStore,
 		Verifier:       authManager,
+		SnapshotManager: riskSnapshotManager,
 	}
 	tools.RegisterSessionTools(srv.mcpServer, toolDeps, authManager, streamingManager)
 	tools.RegisterSessionStateTools(srv.mcpServer, toolDeps, streamingManager)
@@ -145,6 +148,13 @@ func New(
 	}
 
 	riskSnapshotManager.SetHydrationClient(risksnapshotHydrationAdapter{tradeReads: tradeReads})
+
+	// Trade-closed notifications: detect nonzero→zero position
+	// transitions in risksnapshot and push a "position.closed" event
+	// over the bound MCP session connection. The service owns its
+	// own goroutine; Stop is called from Server.Close.
+	tradeClosedService := tradeclosed.Wire(riskSnapshotManager, streamingManager, logger)
+	srv.tradeClosed = tradeClosedService
 
 	tools.RegisterTradingTools(srv.mcpServer, toolDeps, restMarketReaderAdapter{rest: clients.RESTInfo}, tradeReads, riskSnapshotManager, authManager, broker == nil)
 	tools.RegisterSignaturePreviewTools(srv.mcpServer, toolDeps, authManager, tradeReads, broker == nil)
@@ -279,6 +289,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	authErr := s.closeAuthManager()
 	streamErr := s.closeStreaming()
 	closeErr := s.closeClients()
+	if s.tradeClosed != nil {
+		s.tradeClosed.Stop()
+	}
 	if shutdownErr != nil {
 		return shutdownErr
 	}

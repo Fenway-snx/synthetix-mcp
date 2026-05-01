@@ -158,6 +158,7 @@ These tools are only registered when `get_server_info.agentBroker.enabled = true
 | `system://fee-schedule` | Current fee rates (hydrated when authenticated) |
 | `system://runbooks` | Operational runbooks for common workflows |
 | `account://risk-limits` | Session-level risk and rate constraints |
+| `account://trade-journal` | Last 14 days of fills aggregated into a daily PnL journal: net PnL, fee burn, win-rate, per-symbol breakdown, and a recent closed-trade card. Authenticated only. |
 | `market://specs/{symbol}` | Contract spec and funding for one market |
 
 ### Prompts

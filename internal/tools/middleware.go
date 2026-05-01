@@ -9,6 +9,7 @@ import (
 
 	"github.com/Fenway-snx/synthetix-mcp/internal/config"
 	snx_lib_utils_time "github.com/Fenway-snx/synthetix-mcp/internal/lib/utils/time"
+	"github.com/Fenway-snx/synthetix-mcp/internal/risksnapshot"
 	"github.com/Fenway-snx/synthetix-mcp/internal/server/backend"
 	"github.com/Fenway-snx/synthetix-mcp/internal/session"
 )
@@ -26,6 +27,12 @@ type ToolDeps struct {
 	// tools. Interface-typed to keep this package free of an
 	// agentbroker import; nil when the broker is disabled.
 	BrokerStatus BrokerStatusProvider
+	// Optional live-order snapshot manager. When set, public tools
+	// that care about "my" orders (e.g. get_orderbook's my-orders
+	// overlay) can query it without threading extra parameters
+	// through every handler. Nil when risksnapshot wiring isn't
+	// available (older test harnesses or broker-less runs).
+	SnapshotManager *risksnapshot.Manager
 }
 
 // Satisfied by *agentbroker.Broker via an adapter in server.go.
