@@ -12,6 +12,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/Fenway-snx/synthetix-mcp/internal/cards"
 	"github.com/Fenway-snx/synthetix-mcp/internal/session"
 	"github.com/synthetixio/synthetix-go/restinfo"
 	"github.com/synthetixio/synthetix-go/types"
@@ -380,12 +381,27 @@ func RegisterPublicTools(server *mcp.Server, deps *ToolDeps) {
 			return toolErrorResponse[orderbookOutput](fmt.Errorf("get orderbook: %w", err))
 		}
 
-		return nil, orderbookOutput{
+		output := orderbookOutput{
 			Meta:   newResponseMeta(authModeForState(tc.State)),
 			Asks:   MapPriceLevelsFromREST(resp.Asks),
 			Bids:   MapPriceLevelsFromREST(resp.Bids),
 			Symbol: resp.Symbol,
-		}, nil
+		}
+
+		subAccountID := int64(0)
+		if tc.State != nil {
+			subAccountID = tc.State.SubAccountID
+		}
+		cardInput := buildOrderbookCardInput(ctx, tc.SessionID, subAccountID, deps.SnapshotManager, output.Symbol, output.Bids, output.Asks)
+		depth := int(input.Limit)
+		if depth <= 0 {
+			depth = 6
+		}
+		card := renderOrderbookCard(cardInput, depth)
+		if res, err := cards.Attach(card, output); err == nil && res != nil {
+			return res, output, nil
+		}
+		return nil, output, nil
 	})
 
 	addPublicTool(server, deps, &mcp.Tool{
