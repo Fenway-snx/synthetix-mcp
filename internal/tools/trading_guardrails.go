@@ -73,11 +73,11 @@ func enforcePlaceOrderGuardrails(
 		}
 	}
 
-	errors := guardrailOrderErrors(ctx, priceReader, resolved, snapshot, normalized)
-	if len(errors) == 0 {
+	violations := guardrailOrderViolations(ctx, priceReader, resolved, snapshot, normalized)
+	if len(violations) == 0 {
 		return nil
 	}
-	return guardrailError(strings.Join(errors, "; "))
+	return firstViolationOrJoined(violations)
 }
 
 func enforceModifyOrderGuardrails(
@@ -382,6 +382,146 @@ func guardrailOrderErrors(
 		}
 	}
 	return errors
+}
+
+// guardrailOrderViolations is the structured cousin of
+// guardrailOrderErrors. It runs the same checks but produces typed
+// *guardrailViolation values so the rejection-card renderer has the
+// `Field`, `Limit`, and `SubmittedQty/Notional` fields it needs to
+// render context-rich card rows. Callers that only need a string
+// (preview validation, plain error wrapping) use the existing
+// guardrailOrderErrors helper which is unchanged.
+func guardrailOrderViolations(
+	ctx context.Context,
+	priceReader guardrailPriceReader,
+	resolved *guardrails.Resolved,
+	snapshot *risksnapshot.Snapshot,
+	normalized normalizedOrderOutput,
+) []guardrailViolation {
+	out := make([]guardrailViolation, 0, 4)
+	if resolved.IsReadOnly() {
+		out = append(out, guardrailViolation{
+			Reason:   "session is read_only and does not permit order placement",
+			Field:    guardrailFieldReadOnly,
+			Symbol:   normalized.Symbol,
+			Side:     normalized.Side,
+			Resolved: resolved,
+		})
+		return out
+	}
+	if !resolved.IsSymbolAllowed(normalized.Symbol) {
+		out = append(out, guardrailViolation{
+			Reason:   fmt.Sprintf("symbol %s is not allowed for this session", normalized.Symbol),
+			Field:    guardrailFieldSymbolNotAllowed,
+			Symbol:   normalized.Symbol,
+			Side:     normalized.Side,
+			Resolved: resolved,
+		})
+	}
+	if !resolved.IsOrderTypeAllowed(normalized.Type) {
+		out = append(out, guardrailViolation{
+			Reason:   fmt.Sprintf("order type %s is not allowed for this session", normalized.Type),
+			Field:    guardrailFieldOrderTypeBlocked,
+			Symbol:   normalized.Symbol,
+			Side:     normalized.Side,
+			Resolved: resolved,
+		})
+	}
+	quantity, err := decimal.NewFromString(normalized.Quantity)
+	if err != nil {
+		out = append(out, guardrailViolation{
+			Reason:   "quantity must be a valid decimal",
+			Field:    guardrailFieldOther,
+			Symbol:   normalized.Symbol,
+			Side:     normalized.Side,
+			Resolved: resolved,
+		})
+		return out
+	}
+	if resolved.HasMaxOrderQuantity() && quantity.GreaterThan(resolved.MaxOrderQuantity) {
+		out = append(out, guardrailViolation{
+			Reason:       fmt.Sprintf("quantity %s exceeds maxOrderQuantity %s", quantity.String(), resolved.MaxOrderQuantity.String()),
+			Field:        guardrailFieldOrderQuantity,
+			SubmittedQty: quantity,
+			Limit:        resolved.MaxOrderQuantity,
+			Symbol:       normalized.Symbol,
+			Side:         normalized.Side,
+			Resolved:     resolved,
+		})
+	}
+	if resolved.HasMaxOrderNotional() {
+		price, err := referencePriceForOrder(ctx, priceReader, normalized)
+		if err == nil {
+			notional := quantity.Mul(price)
+			if notional.GreaterThan(resolved.MaxOrderNotional) {
+				out = append(out, guardrailViolation{
+					Reason:       fmt.Sprintf("order notional %s exceeds maxOrderNotional %s", notional.String(), resolved.MaxOrderNotional.String()),
+					Field:        guardrailFieldOrderNotional,
+					SubmittedNot: notional,
+					Limit:        resolved.MaxOrderNotional,
+					Symbol:       normalized.Symbol,
+					Side:         normalized.Side,
+					Resolved:     resolved,
+				})
+			}
+		}
+	}
+	if normalized.ReduceOnly || (!resolved.HasMaxPositionQuantity() && !resolved.HasMaxPositionNotional()) {
+		return out
+	}
+	if resolved.HasMaxPositionQuantity() {
+		if err := enforcePositionCap(snapshot, normalized.Symbol, normalized.Side, quantity, resolved.MaxPositionQuantity, nil); err != nil {
+			out = append(out, guardrailViolation{
+				Reason:   err.Error(),
+				Field:    guardrailFieldPositionQuantity,
+				Limit:    resolved.MaxPositionQuantity,
+				Symbol:   normalized.Symbol,
+				Side:     normalized.Side,
+				Resolved: resolved,
+			})
+		}
+	}
+	if resolved.HasMaxPositionNotional() {
+		price, err := marketReferencePrice(ctx, priceReader, normalized.Symbol)
+		if err != nil {
+			out = append(out, guardrailViolation{
+				Reason:   err.Error(),
+				Field:    guardrailFieldOther,
+				Symbol:   normalized.Symbol,
+				Side:     normalized.Side,
+				Resolved: resolved,
+			})
+		} else if err := enforcePositionNotionalCap(snapshot, normalized.Symbol, normalized.Side, quantity, price, resolved.MaxPositionNotional, nil); err != nil {
+			out = append(out, guardrailViolation{
+				Reason:   err.Error(),
+				Field:    guardrailFieldPositionNotional,
+				Limit:    resolved.MaxPositionNotional,
+				Symbol:   normalized.Symbol,
+				Side:     normalized.Side,
+				Resolved: resolved,
+			})
+		}
+	}
+	return out
+}
+
+// firstViolationOrJoined picks the most actionable violation to
+// surface as a typed error (so the rejection card can render the
+// context fields), while preserving every reason in the joined
+// message body so existing log readers and structured-error
+// consumers keep their current view.
+func firstViolationOrJoined(violations []guardrailViolation) error {
+	if len(violations) == 0 {
+		return nil
+	}
+	primary := violations[0]
+	reasons := make([]string, 0, len(violations))
+	for _, v := range violations {
+		reasons = append(reasons, v.Reason)
+	}
+	primary.Reason = strings.Join(reasons, "; ")
+	v := primary
+	return &v
 }
 
 func enforcePositionCap(
