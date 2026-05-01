@@ -95,7 +95,7 @@ func RegisterBrokerTools(
 				return toolErrorResponse[placeOrderOutput](err)
 			}
 			if err := enforcePlaceOrderGuardrails(ctx, tc.SessionID, tc.State, snapshotManager, priceReader, normalized); err != nil {
-				return toolErrorResponse[placeOrderOutput](err)
+				return guardrailRejectionResponse[placeOrderOutput](err, normalized)
 			}
 			resp, err := tradeReads.PlaceOrders(ctx, tc, validated, validated.Payload)
 			if err != nil {
