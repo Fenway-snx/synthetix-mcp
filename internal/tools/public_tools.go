@@ -258,6 +258,7 @@ func RegisterPublicTools(server *mcp.Server, deps *ToolDeps) {
 				"system://fee-schedule",
 				"system://runbooks",
 				"account://risk-limits",
+				"account://trade-journal",
 				"market://specs/{symbol}",
 			},
 			EnabledChannels:    []string{"candles", "marketPrices", "trades", "orderbook"},

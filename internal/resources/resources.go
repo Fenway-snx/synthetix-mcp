@@ -540,6 +540,12 @@ func runbookContents() string {
 ### Wallet path (broker disabled)
 - Use preview_trade_signature with action='closePosition' / 'cancelOrders' / 'cancelAllOrders' / 'modifyOrder', sign locally, then call the matching signed_* write tool with the echoed nonce/expiresAfter and {r,s,v} signature.
 
+## Performance review
+
+1. Read account://trade-journal to get the last 14 days of fills aggregated into a daily PnL bar chart, win-rate stats, per-symbol breakdown, and a list of recent closed trades. The resource is authenticated-only and cheap to re-read; it issues one upstream getTrades call per read and returns a markdown body with a compact card at the top.
+2. For deeper analysis, fan out to get_trade_history (raw fills, paginated) and get_funding_payments (funding-only series).
+3. Use account://trade-journal as the canonical "how have I traded recently?" answer; do not poll it on a tight loop.
+
 ## Session refresh
 1. Call restore_session to extend the current MCP session state when a client preserves the same MCP session context.
 2. Open a new connection and call authenticate (wallet path) or any broker write tool (broker path) again if the client cannot preserve the current MCP session ID.
