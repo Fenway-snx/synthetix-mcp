@@ -107,6 +107,10 @@ func RegisterBrokerTools(
 			}
 			result := mapPlaceOrderResultREST(resp.Statuses[0], normalized.Symbol, normalized.Quantity)
 			applyPlacedOrderSnapshot(tc.SessionID, snapshotManager, normalized, result)
+			card := renderPlaceOrderCard(normalized, result)
+			if res, err := cards.Attach(card, result); err == nil && res != nil {
+				return res, result, nil
+			}
 			return nil, result, nil
 		})
 
