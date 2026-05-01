@@ -17,6 +17,7 @@ import (
 
 	"github.com/Fenway-snx/synthetix-mcp/internal/agentbroker"
 	internal_auth "github.com/Fenway-snx/synthetix-mcp/internal/auth"
+	"github.com/Fenway-snx/synthetix-mcp/internal/cards"
 	"github.com/Fenway-snx/synthetix-mcp/internal/guardrails"
 	"github.com/Fenway-snx/synthetix-mcp/internal/lib/api/validation"
 	"github.com/Fenway-snx/synthetix-mcp/internal/risksnapshot"
@@ -95,7 +96,7 @@ func RegisterBrokerTools(
 				return toolErrorResponse[placeOrderOutput](err)
 			}
 			if err := enforcePlaceOrderGuardrails(ctx, tc.SessionID, tc.State, snapshotManager, priceReader, normalized); err != nil {
-				return toolErrorResponse[placeOrderOutput](err)
+				return guardrailRejectionResponse[placeOrderOutput](err, normalized)
 			}
 			resp, err := tradeReads.PlaceOrders(ctx, tc, validated, validated.Payload)
 			if err != nil {
@@ -106,6 +107,10 @@ func RegisterBrokerTools(
 			}
 			result := mapPlaceOrderResultREST(resp.Statuses[0], normalized.Symbol, normalized.Quantity)
 			applyPlacedOrderSnapshot(tc.SessionID, snapshotManager, normalized, result)
+			card := renderPlaceOrderCard(normalized, result)
+			if res, err := cards.Attach(card, result); err == nil && res != nil {
+				return res, result, nil
+			}
 			return nil, result, nil
 		})
 
@@ -114,6 +119,15 @@ func RegisterBrokerTools(
 		Description: "Canonical self-hosted broker path: close one position with a reduce-only counter-order signed by this MCP process. Use signed_close_position only for advanced external-wallet signing.",
 	}, func(in quickClosePositionInput) *int64 { return int64Optional(in.SubAccountID.Int64()) },
 		func(ctx context.Context, tc ToolContext, input quickClosePositionInput) (*mcp.CallToolResult, closePositionOutput, error) {
+			// Snapshot the position BEFORE we place the closing
+			// order — getPositions is destructive on a full close
+			// (the row disappears) so we need the entry price,
+			// CreatedAt, and NetFunding captured up front for the
+			// PnL card. Errors here are swallowed: the close flow
+			// is resolved independently by resolveClosablePosition
+			// below and a missing snapshot only degrades the card.
+			preSnapshot := captureClosePositionSnapshot(ctx, tradeReads, tc, input.Symbol)
+
 			positionSide, currentQuantity, err := resolveClosablePosition(ctx, tradeReads, tc, input.Symbol)
 			if err != nil {
 				return toolErrorResponse[closePositionOutput](err)
@@ -172,11 +186,16 @@ func RegisterBrokerTools(
 			}
 			result := mapPlaceOrderResultREST(resp.Statuses[0], normalized.Symbol, normalized.Quantity)
 			applyPlacedOrderSnapshot(tc.SessionID, snapshotManager, normalized, result)
-			return nil, closePositionOutput{
+			output := closePositionOutput{
 				placeOrderOutput:          result,
 				ClosedQuantity:            closeQuantity.String(),
 				RemainingPositionQuantity: currentQuantity.Sub(closeQuantity).String(),
-			}, nil
+			}
+			card := renderClosePositionCard(preSnapshot, output, closeQuantity)
+			if res, err := cards.Attach(card, output); err == nil && res != nil {
+				return res, output, nil
+			}
+			return nil, output, nil
 		})
 
 	addAuthenticatedQuickTool(server, deps, broker, authenticator, &mcp.Tool{
@@ -188,6 +207,17 @@ func RegisterBrokerTools(
 			if err != nil {
 				return toolErrorResponse[closeAllPositionsOutput](err)
 			}
+			// Batch-fetch every pre-close snapshot in a single
+			// getPositions round trip so the portfolio card can
+			// show per-symbol entry/exit/PnL. One shared lookup
+			// is also cheaper than N per-symbol lookups and
+			// avoids the race where partial fills would skew
+			// later reads.
+			symbolsForSnapshot := make([]string, 0, len(normalized))
+			for _, order := range normalized {
+				symbolsForSnapshot = append(symbolsForSnapshot, order.Symbol)
+			}
+			preSnapshots := captureClosePositionSnapshots(ctx, tradeReads, tc, symbolsForSnapshot)
 			for _, order := range normalized {
 				if err := enforcePlaceOrderGuardrails(ctx, tc.SessionID, tc.State, snapshotManager, priceReader, order); err != nil {
 					return toolErrorResponse[closeAllPositionsOutput](err)
@@ -213,6 +243,10 @@ func RegisterBrokerTools(
 					Side:           sides[i],
 					Symbol:         order.Symbol,
 				})
+			}
+			card := renderCloseAllPositionsCard(preSnapshots, out, quantities)
+			if res, err := cards.Attach(card, out); err == nil && res != nil {
+				return res, out, nil
 			}
 			return nil, out, nil
 		})
