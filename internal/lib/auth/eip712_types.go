@@ -1,0 +1,231 @@
+package auth
+
+import (
+	"github.com/ethereum/go-ethereum/signer/core/apitypes"
+)
+
+const (
+	ActionModifyOrder = "modify_order"
+	ActionCancelOrder = "cancel_order"
+	ActionPlaceOrders = "place_orders"
+)
+
+// Returns EIP-712 types for modify order.
+func GetModifyOrderTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"ModifyOrder": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "orderId", Type: "uint256"},
+			{Name: "price", Type: "string"},        // Optional - empty string if not modified
+			{Name: "quantity", Type: "string"},     // Optional - empty string if not modified
+			{Name: "triggerPrice", Type: "string"}, // Optional - empty string if not modified
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for modify order by client ID.
+func GetModifyOrderByCloidTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"ModifyOrderByCloid": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "clientOrderId", Type: "string"},
+			{Name: "price", Type: "string"},
+			{Name: "quantity", Type: "string"},
+			{Name: "triggerPrice", Type: "string"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for cancel all orders
+func GetCancelAllOrdersTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"CancelAllOrders": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "symbols", Type: "string[]"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for cancel order.
+func GetCancelOrderTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"CancelOrders": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "orderIds", Type: "uint256[]"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for cancel order by client ID.
+func GetCancelOrdersByCloidTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"CancelOrdersByCloid": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "clientOrderIds", Type: "string[]"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for place orders.
+func GetPlaceOrdersTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"Order": {
+			{Name: "symbol", Type: "string"},
+			{Name: "side", Type: "string"},
+			{Name: "orderType", Type: "string"},
+			{Name: "price", Type: "string"},
+			{Name: "triggerPrice", Type: "string"},
+			{Name: "quantity", Type: "string"},
+			{Name: "reduceOnly", Type: "bool"},
+			{Name: "isTriggerMarket", Type: "bool"},
+			{Name: "clientOrderId", Type: "string"},
+			{Name: "closePosition", Type: "bool"},
+		},
+		"PlaceOrders": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "orders", Type: "Order[]"},
+			{Name: "grouping", Type: "string"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for scheduled cancel.
+func GetScheduleCancelTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"ScheduleCancel": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "timeoutSeconds", Type: "uint256"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for collateral withdrawal.
+func GetWithdrawCollateralTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"WithdrawCollateral": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "symbol", Type: "string"},
+			{Name: "amount", Type: "string"},
+			{Name: "destination", Type: "address"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for adding a delegated signer.
+func GetAddDelegatedSignerTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"AddDelegatedSigner": {
+			{Name: "delegateAddress", Type: "address"},
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+			{Name: "expiresAt", Type: "uint256"},
+			{Name: "permissions", Type: "string[]"},
+		},
+	}
+}
+
+// Returns EIP-712 types for removing a delegated signer.
+func GetRemoveDelegatedSignerTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"RemoveDelegatedSigner": {
+			{Name: "delegateAddress", Type: "address"},
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for removing all delegated signers.
+func GetRemoveAllDelegatedSignersTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"RemoveAllDelegatedSigners": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for leverage updates.
+func GetUpdateLeverageTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"UpdateLeverage": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "symbol", Type: "string"},
+			{Name: "leverage", Type: "string"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for subaccount creation.
+func GetCreateSubaccountTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"CreateSubaccount": {
+			{Name: "masterSubAccountId", Type: "uint256"},
+			{Name: "name", Type: "string"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for collateral transfers.
+func GetTransferCollateralTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"TransferCollateral": {
+			{Name: "amount", Type: "string"},
+			{Name: "expiresAfter", Type: "uint256"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "symbol", Type: "string"},
+			{Name: "to", Type: "uint256"},
+		},
+	}
+}
+
+// Returns EIP-712 types for subaccount name updates.
+func GetUpdateSubAccountNameTypes() apitypes.Types {
+	return apitypes.Types{
+		"EIP712Domain": getEIP712DomainFields(),
+		"UpdateSubAccountName": {
+			{Name: "subAccountId", Type: "uint256"},
+			{Name: "name", Type: "string"},
+			{Name: "nonce", Type: "uint256"},
+			{Name: "expiresAfter", Type: "uint256"},
+		},
+	}
+}

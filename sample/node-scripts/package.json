@@ -1,0 +1,12 @@
+{
+  "name": "synthetix-mcp-node-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "auth": "node authenticate-external-wallet.mjs"
+  },
+  "dependencies": {
+    "ethers": "^6.15.0"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "synthetix-dex-mcp": {
+      "url": "http://localhost:8096/mcp"
+    }
+  }
+}
