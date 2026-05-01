@@ -114,6 +114,7 @@ func New(
 		PublicSessions: publicSessions,
 		Store:          sessionStore,
 		Verifier:       authManager,
+		SnapshotManager: riskSnapshotManager,
 	}
 	tools.RegisterSessionTools(srv.mcpServer, toolDeps, authManager, streamingManager)
 	tools.RegisterSessionStateTools(srv.mcpServer, toolDeps, streamingManager)
