@@ -12,6 +12,7 @@ import (
 	shopspring_decimal "github.com/shopspring/decimal"
 
 	"github.com/synthetixio/synthetix-go/types"
+	"github.com/Fenway-snx/synthetix-mcp/internal/cards"
 	"github.com/Fenway-snx/synthetix-mcp/internal/session"
 )
 
@@ -304,7 +305,7 @@ func RegisterAccountTools(
 			masterID = strconvParseInt64Silent(*subaccount.MasterAccountID)
 		}
 
-		return nil, accountSummaryOutput{
+		output := accountSummaryOutput{
 			Meta:            newResponseMeta(string(session.AuthModeAuthenticated)),
 			Collaterals:     mapRESTCollaterals(subaccount.Collaterals),
 			FeeRates:        mapRESTFeeRates(subaccount.FeeRates),
@@ -317,7 +318,12 @@ func RegisterAccountTools(
 			PositionCount:   len(subaccount.Positions),
 			SubAccountID:    strconvParseInt64Silent(subaccount.SubAccountID),
 			WalletAddress:   tc.State.WalletAddress,
-		}, nil
+		}
+		card := renderAccountSummaryCard(output)
+		if res, err := cards.Attach(card, output); err == nil && res != nil {
+			return res, output, nil
+		}
+		return nil, output, nil
 	})
 
 	addAuthenticatedTool(server, deps, &mcp.Tool{
@@ -366,13 +372,18 @@ func RegisterAccountTools(
 			page = filtered[offset:end]
 		}
 
-		return nil, positionsOutput{
+		output := positionsOutput{
 			Meta:         newResponseMeta(string(session.AuthModeAuthenticated)),
 			Limit:        input.Limit,
 			Offset:       offset,
 			Positions:    mapRESTPositions(page),
 			SubAccountID: tc.State.SubAccountID,
-		}, nil
+		}
+		card := renderPositionsCard(output)
+		if res, err := cards.Attach(card, output); err == nil && res != nil {
+			return res, output, nil
+		}
+		return nil, output, nil
 	})
 
 	addAuthenticatedTool(server, deps, &mcp.Tool{
@@ -420,13 +431,18 @@ func RegisterAccountTools(
 			page = filtered[offset:end]
 		}
 
-		return nil, openOrdersOutput{
+		output := openOrdersOutput{
 			Limit:        input.Limit,
 			Meta:         newResponseMeta(string(session.AuthModeAuthenticated)),
 			Offset:       offset,
 			Orders:       mapRESTOpenOrders(page),
 			SubAccountID: tc.State.SubAccountID,
-		}, nil
+		}
+		card := renderOpenOrdersCard(output)
+		if res, err := cards.Attach(card, output); err == nil && res != nil {
+			return res, output, nil
+		}
+		return nil, output, nil
 	})
 
 	addAuthenticatedTool(server, deps, &mcp.Tool{
