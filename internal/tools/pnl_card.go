@@ -320,33 +320,6 @@ func computeCloseEconomics(snapshot closePositionSnapshot, exitPrice, closeQty d
 	return pnl, pctMove, arrow
 }
 
-// decimalOrZero parses a REST string decimal, returning zero for
-// empty / malformed inputs. REST payloads use strings for all
-// numeric fields so floats don't lose precision on the wire;
-// upstream has been observed to send "" for fields that haven't
-// settled yet (e.g. NetFunding on a brand-new position).
-func decimalOrZero(s string) decimal.Decimal {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return decimal.Zero
-	}
-	d, err := decimal.NewFromString(s)
-	if err != nil {
-		return decimal.Zero
-	}
-	return d
-}
-
-// unixMillisToTime converts a REST timestamp (unix millis) into a
-// time.Time. Zero-valued inputs stay zero so the card can
-// recognise "no timestamp known".
-func unixMillisToTime(ms int64) time.Time {
-	if ms == 0 {
-		return time.Time{}
-	}
-	return time.UnixMilli(ms).UTC()
-}
-
 // resolveCardSymbol prefers the snapshot symbol (the real, canonical
 // market symbol from getPositions) over the result symbol. Both
 // should match, but snapshot.Symbol preserves the casing as the
@@ -359,80 +332,6 @@ func resolveCardSymbol(snapshot, fromResult string) string {
 		return fromResult
 	}
 	return "UNKNOWN"
-}
-
-// baseAsset extracts the base from a symbol like "BTC-USDT" ->
-// "BTC". Used as the unit label on the Quantity row. Falls back
-// to a generic "contracts" label when the symbol isn't in the
-// expected form.
-func baseAsset(symbol string) string {
-	for _, sep := range []string{"-", "/", "_"} {
-		if idx := strings.Index(symbol, sep); idx > 0 {
-			return symbol[:idx]
-		}
-	}
-	return "contracts"
-}
-
-// formatQuantity renders a decimal quantity with up to 6 decimal
-// places, trimming trailing zeros. A raw Decimal.String() would
-// emit "0.1000000000" which is visually heavy and hides the
-// actual precision.
-func formatQuantity(q decimal.Decimal) string {
-	s := q.StringFixed(6)
-	// Trim trailing zeros, then a trailing dot.
-	s = strings.TrimRight(s, "0")
-	s = strings.TrimRight(s, ".")
-	if s == "" {
-		return "0"
-	}
-	return s
-}
-
-// priceDecimals picks a reasonable decimal count for a USD price.
-// $76,300 reads as 0 decimals; $76.30 reads as 2 decimals; $0.0042
-// reads as 4 decimals. Prevents sub-dollar crypto prices from
-// looking like zeros in the card.
-func priceDecimals(price float64) int {
-	abs := price
-	if abs < 0 {
-		abs = -abs
-	}
-	switch {
-	case abs >= 1000:
-		return 0
-	case abs >= 1:
-		return 2
-	case abs >= 0.01:
-		return 4
-	default:
-		return 6
-	}
-}
-
-// pnlDecimals picks decimals for dollar-denominated PnL amounts.
-// Small crypto positions generate cents-and-fractions of cents of
-// PnL, so we keep 3 decimals below $1 to make dust visible.
-func pnlDecimals(pnl float64) int {
-	abs := pnl
-	if abs < 0 {
-		abs = -abs
-	}
-	switch {
-	case abs >= 100:
-		return 2
-	case abs >= 1:
-		return 2
-	default:
-		return 3
-	}
-}
-
-func absFloat(v float64) float64 {
-	if v < 0 {
-		return -v
-	}
-	return v
 }
 
 func signedFundingPrefix(v float64) string {
@@ -448,21 +347,6 @@ func fundingNote(opened time.Time, direction string) string {
 		return "(" + cards.Duration(time.Since(opened)) + " hold — " + direction + ")"
 	}
 	return note
-}
-
-func firstNonEmptyLocal(a, b string) string {
-	if strings.TrimSpace(a) != "" {
-		return a
-	}
-	return b
-}
-
-func truncateForRow(s string, max int) string {
-	s = strings.TrimSpace(s)
-	if len(s) <= max {
-		return s
-	}
-	return s[:max-1] + "…"
 }
 
 // renderCloseAllPositionsCard builds a single portfolio summary
@@ -581,17 +465,3 @@ func pluralize(n int, singular, plural string) string {
 	return plural
 }
 
-// glyphsForDelta is a tool-side mirror of the cards package's
-// internal arrow selector. We duplicate the thin logic here to
-// avoid widening the cards public surface just for one exported
-// helper.
-func glyphsForDelta(v float64) string {
-	switch {
-	case v > 0:
-		return "▲"
-	case v < 0:
-		return "▼"
-	default:
-		return "◆"
-	}
-}

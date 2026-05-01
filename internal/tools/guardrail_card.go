@@ -234,28 +234,8 @@ func guardrailRejectionResponse[Out any](err error, normalized normalizedOrderOu
 	return cards.AttachText(result, card), out, nil
 }
 
-func absFloat64(v float64) float64 {
-	if v < 0 {
-		return -v
-	}
-	return v
-}
-
-func absFloat(v float64) float64 {
-	return absFloat64(v)
-}
-
-func baseAsset(symbol string) string {
-	for _, sep := range []string{"-", "/", "_"} {
-		if idx := strings.Index(symbol, sep); idx > 0 {
-			return symbol[:idx]
-		}
-	}
-	return ""
-}
-
 func trimDecimalAbs(v float64) string {
-	abs := absFloat64(v)
+	abs := absFloat(v)
 	s := fmt.Sprintf("%.6f", abs)
 	s = strings.TrimRight(s, "0")
 	s = strings.TrimRight(s, ".")

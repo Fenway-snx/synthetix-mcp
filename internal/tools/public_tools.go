@@ -304,10 +304,15 @@ func RegisterPublicTools(server *mcp.Server, deps *ToolDeps) {
 			markets = append(markets, MapMarketFromREST(&marketsResp[i]))
 		}
 
-		return nil, listMarketsOutput{
+		output := listMarketsOutput{
 			Meta:    newResponseMeta(authModeForState(tc.State)),
 			Markets: markets,
-		}, nil
+		}
+		card := renderListMarketsCard(output)
+		if res, err := cards.Attach(card, output); err == nil && res != nil {
+			return res, output, nil
+		}
+		return nil, output, nil
 	})
 
 	addPublicTool(server, deps, &mcp.Tool{
@@ -358,14 +363,19 @@ func RegisterPublicTools(server *mcp.Server, deps *ToolDeps) {
 		priceForSymbol := pricesResp[input.Symbol]
 		// openInterest ships on the getMarketPrices payload, so we
 		// get it for free without a separate call.
-		return nil, marketSummaryOutput{
+		output := marketSummaryOutput{
 			Meta:         newResponseMeta(authModeForState(tc.State)),
 			FundingRate:  MapFundingRateFromREST(fundingResp),
 			Market:       MapMarketFromREST(marketResp),
 			OpenInterest: priceForSymbol.OpenInterest,
 			Prices:       MarketPriceFromREST(&priceForSymbol),
 			Summary:      MarketSummaryFromREST(&priceForSymbol),
-		}, nil
+		}
+		card := renderMarketSummaryCard(output)
+		if res, err := cards.Attach(card, output); err == nil && res != nil {
+			return res, output, nil
+		}
+		return nil, output, nil
 	})
 
 	addPublicTool(server, deps, &mcp.Tool{
